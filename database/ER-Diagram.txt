@@ -1,0 +1,210 @@
++==========================================================================================================================+
+|                                          ENTITY RELATIONSHIP DIAGRAM                                                     |
+|                                     Smart Hostel Management System                                                        |
+|                                                                                                                          |
+|     PK = Primary Key    FK = Foreign Key    UQ = Unique Key    1---1 = One-to-One    1---* = One-to-Many                  |
++==========================================================================================================================+
+
+                                                    +----------------------------+
+                                                    |          users             |
+                                                    |----------------------------|
+                                                    | PK: id (BIGINT)            |
+                                                    | name (VARCHAR 100)         |
+                                                    | email (VARCHAR 100) [UQ]   |
+                                                    | password (VARCHAR 255)     |
+                                                    | role (ENUM)                |
+                                                    | phone (VARCHAR 20)         |
+                                                    | profile_image_url (VARCHAR)|
+                                                    | created_at (DATETIME)      |
+                                                    +-------------+--------------+
+                                                                  |
+                    +---------------------------------------------+---------------------------------------------+
+                    | 1:1                                          | 1:1                                          | 1:1
+                    |                                              |                                              |
+          +---------+-----------+                     +-----------+----------+                     +-------------+----------+
+          |       admins        |                     |       students      |                     |        wardens        |
+          |---------------------|                     |---------------------|                     |-----------------------|
+          | PK: id (BIGINT)     |                     | PK: id (BIGINT)     |                     | PK: id (BIGINT)       |
+          | FK: user_id (1---1) |                     | FK: user_id (1---1) |                     | FK: user_id (1---1)   |
+          | department (VARCHAR)|                     | FK: room_id (*---1)  |                     | FK: block_id (*---1)  |
+          | created_at          |                     | enrollment_no [UQ]   |                     | qualification (VARCHAR)|
+          +---------------------+                     | parent_contact       |                     | created_at            |
+                                                      | address              |                     +----------+------------+
+                                                      | date_of_birth        |                                |
+                                                      | gender               |                                | *
+                                                      | created_at           |                                |
+                                                      +---------+------------+                                |
+                                                                |                                              |
+                                                                | *                                            | 1
+                                                                |                                              |
+                                                                |                +-------------------+          |
+                                                                |                |   hostel_blocks   |<---------+
+                                                                |                |-------------------|
+                                                                +----------------| PK: id (BIGINT)   |
+                                                                                 | name (VARCHAR)     |
+                                                                  +--------------| code (VARCHAR) [UQ]|
+                                                                  |              | address (VARCHAR)  |
+                                                                  |              | created_at         |
+                                                                  |              +---------+---------+
+                                                                  |                        |
+                                                                  |                        | 1
+                                                                  |                        |
+                                                                  |              +---------+---------+
+                                                                  |              |      rooms        |
+                                                                  |              |-------------------|
+                                                                  |              | PK: id (BIGINT)   |
+                                                                  |              | FK: block_id (*-1)|
+                                                                  |              | room_no (VARCHAR) |
+                                                                  |              | floor (INT)       |
+                                                                  |              | capacity (INT)    |
+                                                                  |              | occupants (INT)   |
+                                                                  |              | status (ENUM)     |
+                                                                  |              | rent (DOUBLE)     |
+                                                                  |              | created_at        |
+                                                                  |              | UQ: (room_no,     |
+                                                                  |              |      block_id)    |
+                                                                  |              +---------+--------+
+                                                                  |                        |
+                                                                  | 1                      |
+                                                                  |                        |
+                                                            +-----+-------+              |
+                                                            |             |              |
+                                                            | *           |              |
+                                                            |             |              |
+                                                      +-----+----+      |              |
+                                                      |          |      |              |
+                                                      | *        |      |              |
+                                                      |          |      |              |
+                                                 +----+-----+   |      |              |
+                                                 |          |   |      |              |
+                                                 | *        |   |      |              |
+                                                 |          |   |      |              |
+                                            +----+---+     |   |      |              |
+                                            |        |     |   |      |              |
+                                            |        |     |   |      |              |
+                                            |        |     |   |      |              |
+  +----------------------------------------+--------+-----+---+------+--------------+----------------------------+
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    leave_requests                             |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  FK: student_id (1---*)           |                                           |
+  |  | from_date (VARCHAR 20)   |  to_date (VARCHAR 20)             |                                           |
+  |  | reason (TEXT)            |  status (ENUM: PENDING/APPROVED/  |                                           |
+  |  |                          |           REJECTED)               |                                           |
+  |  | applied_at (VARCHAR 50)  |  resolved_at (VARCHAR 50)         |                                           |
+  |  | approved_by (VARCHAR)    |  remarks (TEXT)                   |                                           |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    complaints                                  |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  FK: student_id (1---*)           |                                           |
+  |  | title (VARCHAR 200)      |  description (TEXT)                |                                           |
+  |  | image_url (VARCHAR 500)  |  status (ENUM: PENDING/IN_PROGRESS/|                                           |
+  |  |                          |           RESOLVED/REJECTED)       |                                           |
+  |  | created_at (VARCHAR 50)  |  resolved_at (VARCHAR 50)         |                                           |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    notices                                     |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  title (VARCHAR 200)               |                                           |
+  |  | content (TEXT)           |  posted_by (VARCHAR 100)           |                                           |
+  |  | posted_at (VARCHAR 50)   |  expires_at (VARCHAR 50)          |                                           |
+  |  | target_role (VARCHAR 50) |  (Standalone - no FK)              |                                           |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    mess_feedback                               |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  FK: student_id (1---*)           |     +-----------------------------+       |
+  |  | date (VARCHAR 20)        |  food_quality_rating (INT 1-5)     |     |          students            |       |
+  |  | taste_rating (INT 1-5)   |  cleanliness_rating (INT 1-5)     |-----|         (1)       (*)          |       |
+  |  | comments (TEXT)          |  created_at (DATETIME)            |     +-----------------------------+       |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    lost_and_found                              |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  FK: reported_by_id (*---1)       |     +-----------------------------+       |
+  |  | title (VARCHAR 200)      |  description (TEXT)                |     |          students            |       |
+  |  | image_url (VARCHAR 500)  |  status (ENUM: LOST/FOUND/        |-----|         (1)       (*)          |       |
+  |  |                          |           RESOLVED)               |     +-----------------------------+       |
+  |  | category (VARCHAR 100)   |  location (VARCHAR 200)           |                                           |
+  |  | contact_info (VARCHAR)   |  created_at (DATETIME)            |                                           |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  |  +--------------------------------------------------------------+                                           |
+  |  |                    marketplace_items                           |                                           |
+  |  |--------------------------------------------------------------|                                           |
+  |  | PK: id (BIGINT)          |  FK: seller_id (1---*)            |     +-----------------------------+       |
+  |  | title (VARCHAR 200)      |  description (TEXT)                |     |          students            |       |
+  |  | price (DOUBLE)           |  image_url (VARCHAR 500)           |-----|         (1)       (*)          |       |
+  |  | category (VARCHAR 100)   |  status (ENUM: AVAILABLE/SOLD)    |     +-----------------------------+       |
+  |  | created_at (DATETIME)    |                                   |                                           |
+  |  +--------------------------------------------------------------+                                           |
+  |                                                                                                              |
+  +--------------------------------------------------------------------------------------------------------------+
+
++==========================================================================================================================+
+|                                         RELATIONSHIP SUMMARY                                                             |
++==========================================================================================================================+
+|                                                                                                                          |
+|  1.  users (1) --- (1) students         : One user has exactly one student profile                                       |
+|  2.  users (1) --- (1) admins           : One user has exactly one admin profile                                         |
+|  3.  users (1) --- (1) wardens          : One user has exactly one warden profile                                        |
+|  4.  hostel_blocks (1) --- (*) rooms    : One block contains many rooms                                                  |
+|  5.  rooms (1) --- (*) students         : One room can house many students (up to capacity)                              |
+|  6.  hostel_blocks (1) --- (*) wardens  : One block can have many wardens assigned                                       |
+|  7.  students (1) --- (*) leave_requests: One student can submit many leave requests                                     |
+|  8.  students (1) --- (*) complaints    : One student can file many complaints                                           |
+|  9.  students (1) --- (*) mess_feedback : One student can submit many mess feedback entries                              |
+| 10.  students (1) --- (*) lost_and_found: One student can report many lost/found items                                   |
+| 11.  students (1) --- (*) marketplace   : One student can list many items for sale                                        |
+|                                                                                                                          |
++==========================================================================================================================+
+
++==========================================================================================================================+
+|                                            DATABASE CONSTRAINTS                                                          |
++==========================================================================================================================+
+|                                                                                                                          |
+|  TABLE              CONSTRAINT             TYPE            DETAILS                                                       |
+| ------------------- ---------------------- --------------- ------------------------------------------------------------ |
+|  users              idx_users_email        INDEX           Fast lookup by email for login                                 |
+|  users              idx_users_role         INDEX           Filter users by role (ADMIN/WARDEN/STUDENT)                    |
+|  users              email                  UNIQUE          No two users can have the same email                           |
+|  hostel_blocks      code                   UNIQUE          Block code must be unique (A-BLOCK, B-BLOCK, etc.)             |
+|  rooms              uk_room_block          UNIQUE          Room number must be unique within a block                      |
+|  rooms              idx_rooms_status       INDEX           Filter rooms by availability status                            |
+|  rooms              idx_rooms_block        INDEX           Find all rooms belonging to a block                            |
+|  students           user_id                UNIQUE          One user maps to one student profile                           |
+|  students           enrollment_no          UNIQUE          Each student has a unique enrollment number                    |
+|  students           idx_students_room      INDEX           Find all students in a room                                    |
+|  admins             user_id                UNIQUE          One user maps to one admin profile                              |
+|  wardens            user_id                UNIQUE          One user maps to one warden profile                             |
+|  leave_requests     idx_leaves_student     INDEX           Find leave requests by student ID                              |
+|  leave_requests     idx_leaves_status      INDEX           Filter leave requests by status                                |
+|  complaints         idx_complaints_student INDEX           Find complaints by student ID                                  |
+|  complaints         idx_complaints_status  INDEX           Filter complaints by status                                    |
+|  notices            idx_notices_role       INDEX           Filter notices by target role (ALL/STUDENT/WARDEN)               |
+|  mess_feedback      idx_feedback_student   INDEX           Find feedback entries by student ID                            |
+|  mess_feedback      idx_feedback_date      INDEX           Filter feedback by date                                        |
+|  lost_and_found     idx_lf_status          INDEX           Filter items by status (LOST/FOUND/RESOLVED)                    |
+|  lost_and_found     idx_lf_category        INDEX           Filter items by category                                       |
+|  marketplace_items  idx_market_status      INDEX           Filter items by status (AVAILABLE/SOLD)                        |
+|  marketplace_items  idx_market_category    INDEX           Filter items by category                                       |
+|  marketplace_items  idx_market_seller      INDEX           Find items listed by a specific seller                          |
+|                                                                                                                          |
+|  CASCADE DELETES:                                                                                                         |
+|    DELETE FROM hostel_blocks --> CASCADE deletes all rooms in that block                                                  |
+|    DELETE FROM users         --> CASCADE deletes linked profile (students/admins/wardens)                                 |
+|    DELETE FROM students      --> CASCADE deletes leave_requests, complaints, mess_feedback,                                |
+|                                  lost_and_found, marketplace_items for that student                                       |
+|                                                                                                                          |
+|  SET NULL ON DELETE:                                                                                                      |
+|    DELETE FROM rooms         --> Sets room_id = NULL in students table                                                     |
+|    DELETE FROM hostel_blocks --> Sets block_id = NULL in wardens table                                                     |
+|    DELETE FROM students      --> Sets reported_by_id = NULL in lost_and_found table                                        |
+|                                                                                                                          |
++==========================================================================================================================+
