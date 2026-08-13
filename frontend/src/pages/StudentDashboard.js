@@ -718,15 +718,37 @@ const StudentComplaint = () => {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-2 text-gray-500 font-medium">Title</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Category</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Priority</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Sentiment</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Date</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Status</th>
-                  <th className="text-left py-2 text-gray-500 font-medium">Response</th>
                 </tr>
               </thead>
               <tbody>
                 {complaints.map((c, i) => (
                   <tr key={i} className="border-b border-gray-50">
                     <td className="py-2 text-gray-700 max-w-[150px] truncate">{c.title}</td>
+                    <td className="py-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{c.aiCategory || c.category || '\u2014'}</span>
+                    </td>
+                    <td className="py-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                        c.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                        c.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                        c.priority === 'LOW' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.priority || '\u2014'}</span>
+                    </td>
+                    <td className="py-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.sentiment === 'POSITIVE' ? 'bg-green-100 text-green-700' :
+                        c.sentiment === 'NEGATIVE' ? 'bg-red-100 text-red-700' :
+                        c.sentiment === 'NEUTRAL' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.sentiment || '\u2014'}</span>
+                    </td>
                     <td className="py-2 text-gray-700">{c.createdAt?.slice(0, 10)}</td>
                     <td className="py-2">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -735,7 +757,6 @@ const StudentComplaint = () => {
                         'bg-yellow-100 text-yellow-700'
                       }`}>{c.status}</span>
                     </td>
-                    <td className="py-2 text-gray-500">{c.response || '\u2014'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -2,6 +2,7 @@ package com.hostel.service;
 
 import com.hostel.dto.AICategorizationResponse;
 import com.hostel.dto.RoomDto;
+import com.hostel.entity.Complaint;
 import com.hostel.entity.Room;
 import com.hostel.entity.Student;
 import com.hostel.exception.ResourceNotFoundException;
@@ -47,6 +48,60 @@ public class AIService {
             "bad", "terrible", "awful", "worst", "dirty", "disgusting", "horrible",
             "poor", "hate", "unclean", "rotten", "stale", "unsatisfied", "unhappy", "angry"
     );
+
+    private static final List<String> CRITICAL_SAFETY_KEYWORDS = Arrays.asList(
+            "fire", "smoke", "spark", "sparking", "electric shock", "burning",
+            "short circuit", "flooding", "flood", "gas leak", "hazard", "danger",
+            "unsafe", "emergency", "broken glass", "exposed wire"
+    );
+
+    private static final List<String> URGENCY_KEYWORDS = Arrays.asList(
+            "urgent", "immediately", "asap", "as soon as possible", "right now",
+            "tonight", "today", "tomorrow", "cannot wait", "can't wait", "critical"
+    );
+
+    private static final List<String> RISK_KEYWORDS = Arrays.asList(
+            "leak", "leaking", "water", "pipe", "burst", "overflow", "wiring",
+            "socket", "electrical", "power cut", "no electricity", "sparking"
+    );
+
+    private static final List<String> OUTAGE_KEYWORDS = Arrays.asList(
+            "internet", "wifi", "wi-fi", "network", "connection", "no electricity", "power cut"
+    );
+
+    private static final List<String> DEADLINE_KEYWORDS = Arrays.asList(
+            "exam", "test", "deadline", "submission", "assignment", "interview",
+            "online class", "online exam"
+    );
+
+    private static final List<String> DURATION_KEYWORDS = Arrays.asList(
+            "for a day", "for days", "for 2 days", "for 3 days", "for a week",
+            "for weeks", "for a month", "all day", "two days", "three days",
+            "several days", "since yesterday", "since morning", "long time", "whole day"
+    );
+
+    private static final List<String> PROBLEM_KEYWORDS = Arrays.asList(
+            "broken", "not working", "not rotating", "not functioning", "stopped",
+            "stuck", "damaged", "cracked", "jammed", "fused", "dead", "down",
+            "not heating", "not cooling", "not charging", "not available", "blocked"
+    );
+
+    private static final Map<String, String> CATEGORY_RECOMMENDATIONS = new HashMap<>();
+
+    static {
+        CATEGORY_RECOMMENDATIONS.put("ELECTRICAL",
+                "Inspect the electrical wiring and affected appliance, then arrange repair or replacement through the electrical maintenance team.");
+        CATEGORY_RECOMMENDATIONS.put("PLUMBING",
+                "Inspect the water line or fixture and arrange repair through the plumbing maintenance team to prevent further leakage or damage.");
+        CATEGORY_RECOMMENDATIONS.put("INTERNET",
+                "Verify the network connection and router status, then coordinate with the IT team or service provider to restore connectivity.");
+        CATEGORY_RECOMMENDATIONS.put("FURNITURE",
+                "Inspect the furniture item and schedule repair or replacement with the maintenance team.");
+        CATEGORY_RECOMMENDATIONS.put("MESS",
+                "Notify the mess supervisor and review the food or service concern with the catering team.");
+        CATEGORY_RECOMMENDATIONS.put("GENERAL",
+                "Review the complaint and forward it to the responsible department for resolution.");
+    }
 
     private final RoomRepository roomRepository;
     private final StudentRepository studentRepository;
@@ -123,6 +178,78 @@ public class AIService {
 
         log.info("Sentiment result: {} (positive={}, negative={})", sentiment, positiveCount, negativeCount);
         return sentiment;
+    }
+
+    /**
+     * Deterministic, explainable priority scoring for a complaint.
+     *
+     * <p>Factors considered: immediate safety hazards, urgency keywords, risk terms
+     * (electrical/water), connectivity outage, upcoming deadlines, and reported duration.</p>
+     */
+    public Complaint.ComplaintPriority analyzePriority(String title, String description) {
+        String text = ((title == null ? "" : title) + " " + (description == null ? "" : description)).toLowerCase();
+
+        boolean criticalSafety = containsAny(text, CRITICAL_SAFETY_KEYWORDS);
+        boolean urgent = containsAny(text, URGENCY_KEYWORDS);
+        boolean risk = containsAny(text, RISK_KEYWORDS);
+        boolean outage = containsAny(text, OUTAGE_KEYWORDS);
+        boolean deadline = containsAny(text, DEADLINE_KEYWORDS);
+        boolean duration = containsAny(text, DURATION_KEYWORDS);
+        boolean problem = containsAny(text, PROBLEM_KEYWORDS);
+
+        Complaint.ComplaintPriority priority;
+        if (criticalSafety) {
+            priority = Complaint.ComplaintPriority.CRITICAL;
+        } else if (urgent && (risk || outage || deadline)) {
+            priority = Complaint.ComplaintPriority.HIGH;
+        } else if (urgent || risk) {
+            priority = Complaint.ComplaintPriority.HIGH;
+        } else if (outage && deadline) {
+            priority = Complaint.ComplaintPriority.HIGH;
+        } else if (outage && duration) {
+            priority = Complaint.ComplaintPriority.HIGH;
+        } else if (!problem && !risk && !urgent && !outage && !deadline && !duration) {
+            priority = Complaint.ComplaintPriority.LOW;
+        } else {
+            priority = Complaint.ComplaintPriority.MEDIUM;
+        }
+
+        log.info("Priority result: {} (critical={}, urgent={}, risk={}, outage={}, deadline={}, duration={})",
+                priority, criticalSafety, urgent, risk, outage, deadline, duration);
+        return priority;
+    }
+
+    /**
+     * Deterministic recommendation built from the AI category and computed priority.
+     */
+    public String generateRecommendation(String category, Complaint.ComplaintPriority priority, String title, String description) {
+        String categoryRecommendation = CATEGORY_RECOMMENDATIONS.getOrDefault(
+                category != null ? category : "GENERAL",
+                CATEGORY_RECOMMENDATIONS.get("GENERAL"));
+
+        String prefix;
+        if (priority == Complaint.ComplaintPriority.CRITICAL) {
+            prefix = "URGENT - possible safety concern: ";
+        } else if (priority == Complaint.ComplaintPriority.HIGH) {
+            prefix = "High priority - ";
+        } else if (priority == Complaint.ComplaintPriority.LOW) {
+            prefix = "Low priority - ";
+        } else {
+            prefix = "Standard priority - ";
+        }
+
+        String recommendation = prefix + categoryRecommendation;
+        log.info("Recommendation generated for priority {}: {}", priority, recommendation);
+        return recommendation;
+    }
+
+    private boolean containsAny(String text, List<String> keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public List<RoomDto> recommendRoom(Long studentUserId) {

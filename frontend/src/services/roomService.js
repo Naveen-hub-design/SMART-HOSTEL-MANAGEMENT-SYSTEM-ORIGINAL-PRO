@@ -23,12 +23,12 @@ const roomService = {
 
   addRoom: async (data) => {
     const response = await API.post('/rooms', data);
-    return response.data;
+    return response.data.data;
   },
 
   updateRoom: async (id, data) => {
     const response = await API.put(`/rooms/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   deleteRoom: async (id) => {

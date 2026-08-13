@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,6 +17,15 @@ import lombok.NoArgsConstructor;
 public class DashboardStatsDto {
     @Schema(example = "150")
     private long totalStudents;
+
+    @Schema(example = "10")
+    private long totalWardens;
+
+    @Schema(example = "5")
+    private long totalBlocks;
+
+    @Schema(example = "80")
+    private long monthlyLeaves;
 
     @Schema(example = "100")
     private long totalRooms;
@@ -41,4 +53,12 @@ public class DashboardStatsDto {
 
     @Schema(example = "20")
     private long approvedLeaves;
+
+    @Schema(description = "Per-block occupancy statistics")
+    @Builder.Default
+    private List<BlockStatsDto> blockStats = new ArrayList<>();
+
+    @Schema(description = "Most recent admin activities")
+    @Builder.Default
+    private List<RecentActivityDto> recentActivities = new ArrayList<>();
 }

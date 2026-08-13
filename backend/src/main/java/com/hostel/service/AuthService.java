@@ -60,60 +60,44 @@ public class AuthService {
         log.info("Registering user with email: {}", request.getEmail());
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Email already registered: " + request.getEmail());
+            throw new DuplicateResourceException("Email already registered");
         }
 
-        String roleStr = request.getRole();
-        if (roleStr == null || roleStr.isEmpty()) {
-            roleStr = "STUDENT";
-        }
-        User.Role role = User.Role.valueOf(roleStr.toUpperCase());
-
+        // SECURITY: public registration ALWAYS creates a STUDENT.
+        // Any client-supplied role value is deliberately ignored.
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(role)
+                .role(User.Role.STUDENT)
                 .phone(request.getPhone())
                 .build();
         user = userRepository.save(user);
 
-        switch (role) {
-            case STUDENT -> {
-                Student student = Student.builder()
-                        .user(user)
-                        .enrollmentNo(request.getEnrollmentNo())
-                        .parentContact(request.getParentContact())
-                        .address(request.getAddress())
-                        .dateOfBirth(request.getDateOfBirth())
-                        .gender(request.getGender() != null ? Student.Gender.valueOf(request.getGender().toUpperCase()) : null)
-                        .build();
-                studentRepository.save(student);
-            }
-            case ADMIN -> adminRepository.save(Admin.builder()
-                    .user(user)
-                    .department(request.getDepartment() != null ? request.getDepartment() : "Administration")
-                    .build());
-            case WARDEN -> wardenRepository.save(Warden.builder()
-                    .user(user)
-                    .qualification(request.getQualification() != null ? request.getQualification() : "Not specified")
-                    .build());
-        }
+        Student student = Student.builder()
+                .user(user)
+                .enrollmentNo(request.getEnrollmentNo())
+                .parentContact(request.getParentContact())
+                .address(request.getAddress())
+                .dateOfBirth(request.getDateOfBirth())
+                .gender(request.getGender() != null ? Student.Gender.valueOf(request.getGender().toUpperCase()) : null)
+                .build();
+        studentRepository.save(student);
 
-        String token = jwtUtils.generateToken(user.getEmail(), role.name());
+        String token = jwtUtils.generateToken(user.getEmail(), User.Role.STUDENT.name());
 
         AuthResponse authResponse = AuthResponse.builder()
                 .token(token)
-                .role(role.name())
+                .role(User.Role.STUDENT.name())
                 .name(user.getName())
                 .email(user.getEmail())
                 .userId(user.getId())
                 .message("Registration successful")
                 .build();
 
-        log.info("User registered successfully: {} as {}", user.getEmail(), role);
-        auditService.logAction("USER_REGISTERED", user.getEmail(), role.name(), "USER", user.getId(),
-                "User " + user.getEmail() + " registered as " + role);
+        log.info("User registered successfully: {} as {}", user.getEmail(), user.getRole());
+        auditService.logAction("USER_REGISTERED", user.getEmail(), User.Role.STUDENT.name(), "USER", user.getId(),
+                "User " + user.getEmail() + " registered as " + User.Role.STUDENT);
         return ApiResponse.success("Registration successful", authResponse);
     }
 

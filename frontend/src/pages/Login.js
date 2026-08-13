@@ -160,11 +160,12 @@ const Login = () => {
                 type="button"
                 className="py-2 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200/60 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
                 onClick={() => {
-                  setFormData({ email: 'admin@hostel.com', password: 'password123', role: 'admin' });
-                  doLogin('admin@hostel.com', 'password123');
+                  setFormData({ email: 'admin2@hostel.com', password: 'password123', role: 'admin' });
+                  doLogin('admin2@hostel.com', 'password123');
                 }}
               >
-                ⚡ Admin
+                <span className="block">⚡ Admin</span>
+                <span className="block text-[10px] font-normal text-indigo-500 mt-0.5">admin2@hostel.com</span>
               </button>
               <button
                 type="button"

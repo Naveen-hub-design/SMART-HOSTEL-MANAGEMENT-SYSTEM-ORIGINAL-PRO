@@ -2,9 +2,12 @@ package com.hostel.service;
 
 import com.hostel.dto.ApiResponse;
 import com.hostel.dto.AuthResponse;
+import com.hostel.dto.BlockStatsDto;
 import com.hostel.dto.DashboardStatsDto;
+import com.hostel.dto.RecentActivityDto;
 import com.hostel.dto.RegisterRequest;
 import com.hostel.dto.StudentProfileDto;
+import com.hostel.entity.AuditLog;
 import com.hostel.entity.Complaint;
 import com.hostel.entity.HostelBlock;
 import com.hostel.entity.LeaveRequest;
@@ -15,6 +18,7 @@ import com.hostel.entity.Student;
 import com.hostel.exception.DuplicateResourceException;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.AdminRepository;
+import com.hostel.repository.AuditLogRepository;
 import com.hostel.repository.ComplaintRepository;
 import com.hostel.repository.HostelBlockRepository;
 import com.hostel.repository.LeaveRequestRepository;
@@ -32,8 +36,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -57,6 +65,7 @@ public class AdminService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuditService auditService;
+    private final AuditLogRepository auditLogRepository;
 
     public AdminService(UserRepository userRepository,
                         AdminRepository adminRepository,
@@ -72,7 +81,8 @@ public class AdminService {
                         MessFeedbackRepository messFeedbackRepository,
                         BCryptPasswordEncoder passwordEncoder,
                         JwtUtils jwtUtils,
-                        AuditService auditService) {
+                        AuditService auditService,
+                        AuditLogRepository auditLogRepository) {
         this.userRepository = userRepository;
         this.adminRepository = adminRepository;
         this.wardenRepository = wardenRepository;
@@ -88,6 +98,7 @@ public class AdminService {
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
         this.auditService = auditService;
+        this.auditLogRepository = auditLogRepository;
     }
 
     private String getCurrentUserEmail() {
@@ -106,20 +117,72 @@ public class AdminService {
         long pendingLeaves = leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.PENDING);
         long approvedLeaves = leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.APPROVED);
 
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime monthEnd = monthStart.plusMonths(1);
+
         DashboardStatsDto stats = DashboardStatsDto.builder()
                 .totalStudents(totalStudents)
+                .totalWardens(wardenRepository.count())
+                .totalBlocks(hostelBlockRepository.count())
                 .totalRooms(totalRooms)
                 .occupiedRooms(occupiedRooms)
                 .availableRooms(availableRooms)
+                .monthlyLeaves(leaveRequestRepository.countByAppliedAtBetween(monthStart, monthEnd))
                 .totalComplaints(totalComplaints)
                 .pendingComplaints(pendingComplaints)
                 .resolvedComplaints(resolvedComplaints)
                 .totalLeaves(totalLeaves)
                 .pendingLeaves(pendingLeaves)
                 .approvedLeaves(approvedLeaves)
+                .blockStats(buildBlockStats())
+                .recentActivities(buildRecentActivities())
                 .build();
 
         return ApiResponse.success(stats);
+    }
+
+    private List<BlockStatsDto> buildBlockStats() {
+        List<BlockStatsDto> blockStats = new ArrayList<>();
+        for (HostelBlock block : hostelBlockRepository.findAll()) {
+            long total = roomRepository.countByBlockId(block.getId());
+            long occupied = roomRepository.countByBlockIdAndStatus(block.getId(), Room.RoomStatus.OCCUPIED);
+            blockStats.add(BlockStatsDto.builder()
+                    .name(block.getName())
+                    .capacity(total)
+                    .occupied(occupied)
+                    .build());
+        }
+        return blockStats;
+    }
+
+    private List<RecentActivityDto> buildRecentActivities() {
+        List<RecentActivityDto> activities = new ArrayList<>();
+        for (AuditLog log : auditLogRepository.findTop8ByOrderByCreatedAtDesc()) {
+            activities.add(RecentActivityDto.builder()
+                    .message(log.getDetails() != null && !log.getDetails().isBlank() ? log.getDetails() : log.getAction())
+                    .date(log.getCreatedAt() != null ? log.getCreatedAt().toString() : null)
+                    .build());
+        }
+        return activities;
+    }
+
+    public Map<String, Object> getReportSummary() {
+        long totalRooms = roomRepository.count();
+        long occupiedRooms = roomRepository.countOccupiedRooms();
+        Double avgRent = roomRepository.findAverageRent();
+        long occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms * 100.0) / totalRooms) : 0;
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalStudents", studentRepository.count());
+        summary.put("totalWardens", wardenRepository.count());
+        summary.put("totalRooms", totalRooms);
+        summary.put("totalBlocks", hostelBlockRepository.count());
+        summary.put("occupancyRate", occupancyRate);
+        summary.put("roomsWithRent", roomRepository.countByRentIsNotNull());
+        summary.put("averageRent", avgRent != null ? Math.round(avgRent * 100.0) / 100.0 : null);
+        summary.put("activeStudents", studentRepository.countStudentsWithRoom());
+        summary.put("blockStats", buildBlockStats());
+        return summary;
     }
 
     public ApiResponse<AuthResponse> createWarden(RegisterRequest request) {
@@ -178,9 +241,9 @@ public class AdminService {
         for (Warden warden : wardens) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", warden.getId());
-            map.put("name", warden.getUser().getName());
-            map.put("email", warden.getUser().getEmail());
-            map.put("phone", warden.getUser().getPhone());
+            map.put("name", warden.getUser() != null ? warden.getUser().getName() : null);
+            map.put("email", warden.getUser() != null ? warden.getUser().getEmail() : null);
+            map.put("phone", warden.getUser() != null ? warden.getUser().getPhone() : null);
             map.put("qualification", warden.getQualification());
             map.put("blockName", warden.getBlock() != null ? warden.getBlock().getName() : null);
             map.put("blockId", warden.getBlock() != null ? warden.getBlock().getId() : null);
@@ -243,7 +306,7 @@ public class AdminService {
             map.put("roomCount", block.getRooms() != null ? block.getRooms().size() : 0);
 
             Warden warden = wardenRepository.findByBlockId(block.getId()).orElse(null);
-            map.put("wardenName", warden != null ? warden.getUser().getName() : null);
+            map.put("wardenName", warden != null && warden.getUser() != null ? warden.getUser().getName() : null);
             map.put("wardenId", warden != null ? warden.getId() : null);
 
             blockList.add(map);

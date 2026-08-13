@@ -109,12 +109,9 @@ public class AdminController {
     @GetMapping("/reports")
     @Operation(summary = "Get system reports")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getReports() {
-        Map<String, Long> leaveStats = leaveService.getLeaveCountByStatus().getData();
-        Map<String, Long> complaintStats = complaintService.getComplaintCountByStatus().getData();
-        Map<String, Object> reports = Map.of(
-                "leaves", leaveStats,
-                "complaints", complaintStats
-        );
+        Map<String, Object> reports = new java.util.HashMap<>(adminService.getReportSummary());
+        reports.put("leaves", leaveService.getLeaveCountByStatus().getData());
+        reports.put("complaints", complaintService.getComplaintCountByStatus().getData());
         return ResponseEntity.ok(ApiResponse.success(reports));
     }
 }

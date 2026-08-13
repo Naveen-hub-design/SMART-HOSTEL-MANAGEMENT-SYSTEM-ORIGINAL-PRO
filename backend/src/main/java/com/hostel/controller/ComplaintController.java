@@ -48,7 +48,7 @@ public class ComplaintController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Submit a complaint")
     public ResponseEntity<ApiResponse<Void>> createComplaint(
-            @ModelAttribute ComplaintDto complaintDto,
+            @Valid @ModelAttribute ComplaintDto complaintDto,
             @RequestParam(required = false) MultipartFile image) {
         Long userId = getCurrentUserId();
         return ResponseEntity.ok(complaintService.createComplaint(userId, complaintDto, image));

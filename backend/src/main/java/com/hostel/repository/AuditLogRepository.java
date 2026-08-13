@@ -19,6 +19,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSp
 
     List<AuditLog> findAllByOrderByCreatedAtDesc();
 
+    List<AuditLog> findTop8ByOrderByCreatedAtDesc();
+
     List<AuditLog> findByPerformedByRoleOrderByCreatedAtDesc(String role);
 
     Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);

@@ -602,6 +602,9 @@ const WardenComplaints = () => {
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Title</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Student</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Category</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Priority</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Sentiment</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Status</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Actions</th>
@@ -612,6 +615,26 @@ const WardenComplaints = () => {
                   <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="py-3 px-4 font-semibold text-gray-900">{c.title}</td>
                     <td className="py-3 px-4 text-gray-700">{c.student?.name || c.studentName || '\u2014'}</td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{c.aiCategory || c.category || '\u2014'}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                        c.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                        c.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                        c.priority === 'LOW' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.priority || '\u2014'}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.sentiment === 'POSITIVE' ? 'bg-green-100 text-green-700' :
+                        c.sentiment === 'NEGATIVE' ? 'bg-red-100 text-red-700' :
+                        c.sentiment === 'NEUTRAL' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.sentiment || '\u2014'}</span>
+                    </td>
                     <td className="py-3 px-4 text-gray-700">{c.createdAt?.slice(0, 10)}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -651,6 +674,22 @@ const WardenComplaints = () => {
             <div className="space-y-3">
               <p className="text-sm"><strong className="text-gray-700">Student:</strong> {viewModal.student?.name || viewModal.studentName}</p>
               <p className="text-sm"><strong className="text-gray-700">Date:</strong> {viewModal.createdAt?.slice(0, 10)}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{viewModal.aiCategory || viewModal.category || '\u2014'}</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  viewModal.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                  viewModal.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                  viewModal.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                  viewModal.priority === 'LOW' ? 'bg-gray-100 text-gray-600' :
+                  'bg-gray-100 text-gray-500'
+                }`}>{viewModal.priority ? `Priority: ${viewModal.priority}` : '\u2014'}</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  viewModal.sentiment === 'POSITIVE' ? 'bg-green-100 text-green-700' :
+                  viewModal.sentiment === 'NEGATIVE' ? 'bg-red-100 text-red-700' :
+                  viewModal.sentiment === 'NEUTRAL' ? 'bg-gray-100 text-gray-600' :
+                  'bg-gray-100 text-gray-500'
+                }`}>{viewModal.sentiment ? `Sentiment: ${viewModal.sentiment}` : '\u2014'}</span>
+              </div>
               <p className="text-sm"><strong className="text-gray-700">Status:</strong> <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-1 ${
                 viewModal.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
                 viewModal.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
@@ -659,10 +698,10 @@ const WardenComplaints = () => {
               <p className="text-sm"><strong className="text-gray-700">Description:</strong></p>
               <p className="text-sm text-gray-600">{viewModal.description}</p>
               {viewModal.image && <img src={viewModal.image} alt="Complaint" className="w-full rounded-lg mt-2" />}
-              {viewModal.response && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <strong className="text-sm text-gray-700">Response:</strong>
-                  <p className="text-sm text-gray-600 mt-1">{viewModal.response}</p>
+              {viewModal.aiRecommendation && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <strong className="text-sm text-[#1a237e]">AI Recommendation:</strong>
+                  <p className="text-sm text-gray-600 mt-1">{viewModal.aiRecommendation}</p>
                 </div>
               )}
             </div>

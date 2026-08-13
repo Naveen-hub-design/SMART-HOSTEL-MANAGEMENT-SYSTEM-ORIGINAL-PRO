@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS wardens (
     qualification VARCHAR(200),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (block_id) REFERENCES hostel_blocks(id) ON DELETE SET NULL
+    FOREIGN KEY (block_id) REFERENCES hostel_blocks(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_wardens_block (block_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS leave_requests (

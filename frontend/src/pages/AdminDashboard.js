@@ -35,6 +35,7 @@ const DashboardHome = () => {
   const [leaveStats, setLeaveStats] = useState(null);
   const [complaintStats, setComplaintStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -45,7 +46,7 @@ const DashboardHome = () => {
       setStats(dash);
       setLeaveStats(lstats);
       setComplaintStats(cstats);
-    }).catch(() => toast.error('Failed to load dashboard'))
+    }).catch(() => setError('Failed to load dashboard data. Please check that the backend is running.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -57,13 +58,24 @@ const DashboardHome = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 flex items-center gap-3">
+          <FaExclamationTriangle />
+          <span>{error}</span>
+        </div>
+      </div>
+    );
+  }
+
   const statCards = [
-    { icon: <FaUsers />, label: 'Total Students', value: stats?.totalStudents || 0, color: '#1a237e' },
-    { icon: <FaDoorOpen />, label: 'Total Rooms', value: stats?.totalRooms || 0, color: '#0d47a1' },
-    { icon: <FaUserShield />, label: 'Wardens', value: stats?.totalWardens || 0, color: '#2e7d32' },
-    { icon: <FaBuilding />, label: 'Hostel Blocks', value: stats?.totalBlocks || 0, color: '#f57f17' },
-    { icon: <FaCalendarAlt />, label: 'Leaves This Month', value: stats?.monthlyLeaves || 0, color: '#1565c0' },
-    { icon: <FaExclamationTriangle />, label: 'Pending Complaints', value: stats?.pendingComplaints || 0, color: '#c62828' },
+    { icon: <FaUsers />, label: 'Total Students', value: stats?.totalStudents ?? 0, color: '#1a237e' },
+    { icon: <FaDoorOpen />, label: 'Total Rooms', value: stats?.totalRooms ?? 0, color: '#0d47a1' },
+    { icon: <FaUserShield />, label: 'Wardens', value: stats?.totalWardens ?? 0, color: '#2e7d32' },
+    { icon: <FaBuilding />, label: 'Hostel Blocks', value: stats?.totalBlocks ?? 0, color: '#f57f17' },
+    { icon: <FaCalendarAlt />, label: 'Leaves This Month', value: stats?.monthlyLeaves ?? 0, color: '#1565c0' },
+    { icon: <FaExclamationTriangle />, label: 'Pending Complaints', value: stats?.pendingComplaints ?? 0, color: '#c62828' },
   ];
 
   const occupancyData = {
@@ -73,12 +85,12 @@ const DashboardHome = () => {
 
   const barData = {
     labels: ['Pending', 'In Progress', 'Resolved', 'Rejected'],
-    datasets: [{ label: 'Complaints', data: [complaintStats?.pending || 0, complaintStats?.inProgress || 0, complaintStats?.resolved || 0, complaintStats?.rejected || 0], backgroundColor: ['#eab308', '#3b82f6', '#22c55e', '#ef4444'] }],
+    datasets: [{ label: 'Complaints', data: [complaintStats?.pending ?? 0, complaintStats?.inProgress ?? 0, complaintStats?.resolved ?? 0, complaintStats?.rejected ?? 0], backgroundColor: ['#eab308', '#3b82f6', '#22c55e', '#ef4444'] }],
   };
 
   const lineData = {
     labels: ['Approved', 'Rejected', 'Pending'],
-    datasets: [{ label: 'Leaves', data: [leaveStats?.approved || 0, leaveStats?.rejected || 0, leaveStats?.pending || 0], borderColor: '#1a237e', backgroundColor: 'rgba(26,35,126,0.1)', fill: true }],
+    datasets: [{ label: 'Leaves', data: [leaveStats?.approved ?? 0, leaveStats?.rejected ?? 0, leaveStats?.pending ?? 0], borderColor: '#1a237e', backgroundColor: 'rgba(26,35,126,0.1)', fill: true }],
   };
 
   return (
@@ -107,11 +119,11 @@ const DashboardHome = () => {
         </div>
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><FaExclamationTriangle /> Complaints</h3>
-          <div className="h-64"><Bar data={barData} options={chartOptions} /></div>
+          <div className="h-64">{complaintStats ? <Bar data={barData} options={chartOptions} /> : <div className="flex flex-col items-center justify-center py-8 text-gray-400"><FaExclamationTriangle size={32} className="mb-2" /><p className="text-sm">No data</p></div>}</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><FaCalendarAlt /> Leaves</h3>
-          <div className="h-64"><Line data={lineData} options={chartOptions} /></div>
+          <div className="h-64">{leaveStats ? <Line data={lineData} options={chartOptions} /> : <div className="flex flex-col items-center justify-center py-8 text-gray-400"><FaCalendarAlt size={32} className="mb-2" /><p className="text-sm">No data</p></div>}</div>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -630,7 +642,8 @@ const AdminManageRooms = () => {
     if (!form.roomNo || !form.block || !form.capacity) return toast.error('Please fill required fields');
     setSubmitting(true);
     try {
-      const payload = { roomNumber: form.roomNo, block: form.block, floor: form.floor, capacity: parseInt(form.capacity), rent: form.rent ? parseFloat(form.rent) : undefined };
+      const selectedBlock = blocks.find(b => String(b.id) === String(form.block));
+      const payload = { roomNo: form.roomNo, blockName: selectedBlock ? selectedBlock.name : form.blockName, floor: form.floor, capacity: parseInt(form.capacity), rent: form.rent ? parseFloat(form.rent) : undefined };
       if (editing) {
         const res = await roomService.updateRoom(editing.id, payload);
         setRooms(rooms.map(r => r.id === editing.id ? res : r));
@@ -656,7 +669,7 @@ const AdminManageRooms = () => {
       setRooms(rooms.filter(r => r.id !== id));
       toast.success('Room deleted');
     } catch (err) {
-      toast.error('Failed to delete room');
+      toast.error(err.response?.data?.message || 'Failed to delete room');
     }
   };
 
@@ -906,6 +919,9 @@ const AdminComplaints = () => {
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Title</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Student</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Category</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Priority</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Sentiment</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Status</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Actions</th>
@@ -916,6 +932,26 @@ const AdminComplaints = () => {
                   <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="py-3 px-4 font-semibold text-gray-900">{c.title}</td>
                     <td className="py-3 px-4 text-gray-700">{c.student?.name || c.studentName || '\u2014'}</td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{c.aiCategory || c.category || '\u2014'}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                        c.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                        c.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                        c.priority === 'LOW' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.priority || '\u2014'}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        c.sentiment === 'POSITIVE' ? 'bg-green-100 text-green-700' :
+                        c.sentiment === 'NEGATIVE' ? 'bg-red-100 text-red-700' :
+                        c.sentiment === 'NEUTRAL' ? 'bg-gray-100 text-gray-600' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>{c.sentiment || '\u2014'}</span>
+                    </td>
                     <td className="py-3 px-4 text-gray-700">{c.createdAt?.slice(0, 10)}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.status === 'RESOLVED' ? 'bg-green-100 text-green-700' : c.status === 'REJECTED' ? 'bg-red-100 text-red-700' : c.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>{c.status}</span>

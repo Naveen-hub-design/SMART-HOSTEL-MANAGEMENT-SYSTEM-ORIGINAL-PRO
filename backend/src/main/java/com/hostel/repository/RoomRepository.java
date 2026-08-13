@@ -25,4 +25,13 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     long countAvailableRooms();
 
     List<Room> findByStatusAndBlockId(Room.RoomStatus status, Long blockId);
+
+    long countByBlockId(Long blockId);
+
+    long countByBlockIdAndStatus(Long blockId, Room.RoomStatus status);
+
+    long countByRentIsNotNull();
+
+    @Query("SELECT AVG(r.rent) FROM Room r")
+    Double findAverageRent();
 }

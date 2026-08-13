@@ -112,9 +112,9 @@ public class WardenService {
         for (Warden warden : wardens) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", warden.getId());
-            map.put("name", warden.getUser().getName());
-            map.put("email", warden.getUser().getEmail());
-            map.put("phone", warden.getUser().getPhone());
+            map.put("name", warden.getUser() != null ? warden.getUser().getName() : null);
+            map.put("email", warden.getUser() != null ? warden.getUser().getEmail() : null);
+            map.put("phone", warden.getUser() != null ? warden.getUser().getPhone() : null);
             map.put("qualification", warden.getQualification());
             map.put("blockName", warden.getBlock() != null ? warden.getBlock().getName() : null);
             map.put("blockId", warden.getBlock() != null ? warden.getBlock().getId() : null);
@@ -130,6 +130,14 @@ public class WardenService {
 
         HostelBlock block = hostelBlockRepository.findById(blockId)
                 .orElseThrow(() -> new ResourceNotFoundException("HostelBlock", blockId));
+
+        wardenRepository.findByBlockId(blockId).ifPresent(existing -> {
+            if (!existing.getId().equals(wardenId)) {
+                String name = existing.getUser() != null ? existing.getUser().getName() : "another warden";
+                throw new com.hostel.exception.BadRequestException(
+                        "Hostel block '" + block.getName() + "' is already assigned to " + name + ".");
+            }
+        });
 
         warden.setBlock(block);
         wardenRepository.save(warden);

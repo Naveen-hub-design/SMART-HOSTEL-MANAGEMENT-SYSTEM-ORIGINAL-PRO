@@ -137,9 +137,13 @@ public class LeaveService {
 
     public ApiResponse<Map<String, Long>> getLeaveCountByStatus() {
         Map<String, Long> counts = new HashMap<>();
-        counts.put("PENDING", leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.PENDING));
-        counts.put("APPROVED", leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.APPROVED));
-        counts.put("REJECTED", leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.REJECTED));
+        long pending = leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.PENDING);
+        long approved = leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.APPROVED);
+        long rejected = leaveRequestRepository.countByStatus(LeaveRequest.LeaveStatus.REJECTED);
+        counts.put("pending", pending);
+        counts.put("approved", approved);
+        counts.put("rejected", rejected);
+        counts.put("total", pending + approved + rejected);
 
         return ApiResponse.success(counts);
     }

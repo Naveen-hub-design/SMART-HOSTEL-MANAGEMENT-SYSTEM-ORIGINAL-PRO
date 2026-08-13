@@ -23,7 +23,7 @@ public class Warden {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "block_id")
+    @JoinColumn(name = "block_id", unique = true)
     private HostelBlock block;
 
     private String qualification;

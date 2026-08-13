@@ -45,6 +45,22 @@ public class Complaint {
 
     private LocalDateTime resolvedAt;
 
+    @Column(length = 50)
+    private String aiCategory;
+
+    private Double aiConfidence;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private MessFeedback.Sentiment sentiment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ComplaintPriority priority;
+
+    @Column(columnDefinition = "TEXT")
+    private String aiRecommendation;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -59,5 +75,9 @@ public class Complaint {
 
     public enum ComplaintStatus {
         PENDING, IN_PROGRESS, RESOLVED, REJECTED
+    }
+
+    public enum ComplaintPriority {
+        LOW, MEDIUM, HIGH, CRITICAL
     }
 }

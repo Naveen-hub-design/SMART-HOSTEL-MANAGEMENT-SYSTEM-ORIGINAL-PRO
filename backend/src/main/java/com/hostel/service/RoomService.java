@@ -206,12 +206,12 @@ public class RoomService {
         return RoomDto.builder()
                 .id(room.getId())
                 .roomNo(room.getRoomNo())
-                .blockName(room.getBlock().getName())
-                .blockId(room.getBlock().getId())
+                .blockName(room.getBlock() != null ? room.getBlock().getName() : null)
+                .blockId(room.getBlock() != null ? room.getBlock().getId() : null)
                 .floor(room.getFloor())
                 .capacity(room.getCapacity())
                 .occupants(room.getOccupants())
-                .status(room.getStatus().name())
+                .status(room.getStatus() != null ? room.getStatus().name() : null)
                 .rent(room.getRent())
                 .build();
     }
