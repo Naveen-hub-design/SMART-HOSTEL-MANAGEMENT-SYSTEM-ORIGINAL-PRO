@@ -43,9 +43,6 @@ const Home = () => {
           ) : (
             <>
               <Link to="/login" className="text-gray-600 hover:text-[#1a237e] text-sm font-medium no-underline">Sign In</Link>
-              <Link to="/register" className="bg-[#1a237e] text-white px-5 py-2 rounded-lg text-sm font-medium no-underline hover:bg-[#0d47a1] transition-colors">
-                Get Started
-              </Link>
             </>
           )}
         </div>
@@ -72,8 +69,8 @@ const Home = () => {
                 Go to Dashboard <FaArrowRight />
               </Link>
             ) : (
-              <Link to="/register" className="inline-flex items-center gap-2 bg-[#1a237e] text-white px-8 py-3 rounded-xl text-lg font-medium no-underline hover:bg-[#0d47a1] transition-all shadow-lg hover:shadow-xl">
-                Get Started Free <FaArrowRight />
+              <Link to="/login" className="inline-flex items-center gap-2 bg-[#1a237e] text-white px-8 py-3 rounded-xl text-lg font-medium no-underline hover:bg-[#0d47a1] transition-all shadow-lg hover:shadow-xl">
+                Get Started <FaArrowRight />
               </Link>
             )}
             <a href="#features" className="inline-flex items-center gap-2 border-2 border-gray-300 text-gray-700 px-8 py-3 rounded-xl text-lg font-medium no-underline hover:border-[#1a237e] hover:text-[#1a237e] transition-all">
@@ -159,7 +156,6 @@ const Home = () => {
             <h4 className="text-white font-semibold mb-3">Quick Links</h4>
             <div className="flex flex-col gap-2 text-sm">
               <Link to="/login" className="hover:text-white no-underline">Sign In</Link>
-              <Link to="/register" className="hover:text-white no-underline">Register</Link>
               <a href="#features" className="hover:text-white no-underline">Features</a>
             </div>
           </div>

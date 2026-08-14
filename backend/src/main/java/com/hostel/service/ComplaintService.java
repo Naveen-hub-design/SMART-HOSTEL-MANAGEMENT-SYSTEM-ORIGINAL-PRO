@@ -183,7 +183,41 @@ public class ComplaintService {
     }
 
     public ApiResponse<List<ComplaintDto>> getAllComplaints() {
-        List<Complaint> complaints = complaintRepository.findAllOrderByCreatedAtDesc();
+
+        String currentUserEmail = getCurrentUserEmail();
+
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with email: " + currentUserEmail));
+
+        List<Complaint> complaints;
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+
+            Warden warden = wardenRepository.findByUserId(currentUser.getId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Warden not found for userId: " + currentUser.getId()));
+
+            if (warden.getBlock() == null) {
+                throw new AccessDeniedException(
+                        "Warden is not assigned to a hostel block");
+            }
+
+            complaints = complaintRepository
+                    .findByBlockIdOrderByCreatedAtDesc(
+                            warden.getBlock().getId());
+
+        } else if (currentUser.getRole() == User.Role.ADMIN) {
+
+            complaints = complaintRepository.findAllOrderByCreatedAtDesc();
+
+        } else {
+
+            throw new AccessDeniedException(
+                    "You are not authorized to view complaints");
+        }
+
         List<ComplaintDto> dtos = complaints.stream()
                 .map(ComplaintDto::fromEntity)
                 .collect(Collectors.toList());
@@ -248,11 +282,70 @@ public class ComplaintService {
     }
 
     public ApiResponse<Map<String, Long>> getComplaintCountByStatus() {
+
+        String currentUserEmail = getCurrentUserEmail();
+
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with email: " + currentUserEmail));
+
         Map<String, Long> counts = new HashMap<>();
-        long pending = complaintRepository.countByStatus(Complaint.ComplaintStatus.PENDING);
-        long inProgress = complaintRepository.countByStatus(Complaint.ComplaintStatus.IN_PROGRESS);
-        long resolved = complaintRepository.countByStatus(Complaint.ComplaintStatus.RESOLVED);
-        long rejected = complaintRepository.countByStatus(Complaint.ComplaintStatus.REJECTED);
+
+        long pending;
+        long inProgress;
+        long resolved;
+        long rejected;
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+
+            Warden warden = wardenRepository.findByUserId(currentUser.getId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Warden not found for userId: " + currentUser.getId()));
+
+            if (warden.getBlock() == null) {
+                throw new AccessDeniedException(
+                        "Warden is not assigned to a hostel block");
+            }
+
+            Long blockId = warden.getBlock().getId();
+
+            pending = complaintRepository.countByBlockIdAndStatus(
+                    blockId,
+                    Complaint.ComplaintStatus.PENDING);
+
+            inProgress = complaintRepository.countByBlockIdAndStatus(
+                    blockId,
+                    Complaint.ComplaintStatus.IN_PROGRESS);
+
+            resolved = complaintRepository.countByBlockIdAndStatus(
+                    blockId,
+                    Complaint.ComplaintStatus.RESOLVED);
+
+            rejected = complaintRepository.countByBlockIdAndStatus(
+                    blockId,
+                    Complaint.ComplaintStatus.REJECTED);
+
+        } else if (currentUser.getRole() == User.Role.ADMIN) {
+
+            pending = complaintRepository.countByStatus(
+                    Complaint.ComplaintStatus.PENDING);
+
+            inProgress = complaintRepository.countByStatus(
+                    Complaint.ComplaintStatus.IN_PROGRESS);
+
+            resolved = complaintRepository.countByStatus(
+                    Complaint.ComplaintStatus.RESOLVED);
+
+            rejected = complaintRepository.countByStatus(
+                    Complaint.ComplaintStatus.REJECTED);
+
+        } else {
+
+            throw new AccessDeniedException(
+                    "You are not authorized to view complaint statistics");
+        }
+
         counts.put("pending", pending);
         counts.put("inProgress", inProgress);
         counts.put("resolved", resolved);

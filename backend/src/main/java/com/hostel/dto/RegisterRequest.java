@@ -13,8 +13,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(description = "Registration request. Public registration always creates a STUDENT account; any client-supplied role is ignored.")
+@Schema(description = "Registration request")
 public class RegisterRequest {
+
     @NotBlank(message = "Name is required")
     @Schema(example = "John Doe")
     private String name;
@@ -55,4 +56,11 @@ public class RegisterRequest {
 
     @Schema(example = "M.Tech")
     private String qualification;
+
+    /**
+     * Room selected by the Warden while creating a student.
+     * This is ignored for public registration.
+     */
+    @Schema(example = "12")
+    private Long roomId;
 }

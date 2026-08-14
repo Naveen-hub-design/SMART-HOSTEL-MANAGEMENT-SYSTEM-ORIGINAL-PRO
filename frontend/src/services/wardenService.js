@@ -15,6 +15,20 @@ const wardenService = {
     const response = await API.post(`/wardens/assign-block/${wardenId}/${blockId}`);
     return response.data;
   },
+
+  createStudent: async (studentData) => {
+    const response = await API.post('/wardens/student', studentData);
+    return response.data.data;
+  },
+
+  bulkImportStudents: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await API.post('/wardens/students/bulk', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.data;
+  },
 };
 
 export default wardenService;

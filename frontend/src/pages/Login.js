@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUserGraduate, FaBuilding, FaUserShield } from 'react-icons/fa';
@@ -40,9 +40,10 @@ const Login = () => {
       const role = (data.role || 'student').toLowerCase();
       navigate(`/${role}`, { replace: true });
     } catch (err) {
-      const message = err.response?.data?.message || err.message === 'Network Error' 
-        ? 'Cannot connect to backend server. Make sure Spring Boot is running on port 8080.' 
-        : 'Login failed. Please check your credentials.';
+      const message = err.response?.data?.message
+        || (err.message === 'Network Error'
+          ? 'Cannot connect to backend server. Make sure Spring Boot is running on port 8080.'
+          : 'Login failed. Please check your credentials.');
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -148,11 +149,6 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="text-center mt-6 text-sm text-gray-500">
-            <span>Don't have an account? </span>
-            <Link to="/register" className="text-[#1a237e] font-semibold hover:underline">Create Account</Link>
-          </div>
-
           <div className="mt-6 pt-5 border-t border-gray-100">
             <p className="text-xs font-semibold text-gray-400 text-center uppercase tracking-wider mb-3">Quick Demo Logins (Instant Login)</p>
             <div className="grid grid-cols-3 gap-2">
@@ -181,8 +177,8 @@ const Login = () => {
                 type="button"
                 className="py-2 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200/60 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
                 onClick={() => {
-                  setFormData({ email: 'student@hostel.com', password: 'password123', role: 'student' });
-                  doLogin('student@hostel.com', 'password123');
+                  setFormData({ email: 'student2@hostel.com', password: 'password123', role: 'student' });
+                  doLogin('student2@hostel.com', 'password123');
                 }}
               >
                 ⚡ Student
