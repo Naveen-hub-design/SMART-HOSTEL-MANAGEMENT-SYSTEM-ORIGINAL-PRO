@@ -5,11 +5,16 @@ import com.hostel.dto.RoomDto;
 import com.hostel.entity.HostelBlock;
 import com.hostel.entity.Room;
 import com.hostel.entity.Student;
+import com.hostel.entity.User;
+import com.hostel.entity.Warden;
 import com.hostel.exception.BadRequestException;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.HostelBlockRepository;
 import com.hostel.repository.RoomRepository;
 import com.hostel.repository.StudentRepository;
+import com.hostel.repository.UserRepository;
+import com.hostel.repository.WardenRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,21 +31,64 @@ public class RoomService {
     private final StudentRepository studentRepository;
     private final EmailService emailService;
     private final AuditService auditService;
+    private final UserRepository userRepository;
+    private final WardenRepository wardenRepository;
 
     public RoomService(RoomRepository roomRepository,
                        HostelBlockRepository hostelBlockRepository,
                        StudentRepository studentRepository,
                        EmailService emailService,
-                       AuditService auditService) {
+                       AuditService auditService,
+                       UserRepository userRepository,
+                       WardenRepository wardenRepository) {
         this.roomRepository = roomRepository;
         this.hostelBlockRepository = hostelBlockRepository;
         this.studentRepository = studentRepository;
         this.emailService = emailService;
         this.auditService = auditService;
+        this.userRepository = userRepository;
+        this.wardenRepository = wardenRepository;
     }
 
     private String getCurrentUserEmail() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+    /**
+     * WARDEN callers may only manage rooms inside their own assigned block.
+     * ADMIN (and any other role already permitted by the controller) passes through unchanged.
+     */
+    private void verifyWardenRoomAccess(Room room) {
+
+        String currentUserEmail = getCurrentUserEmail();
+
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with email: " + currentUserEmail));
+
+        if (currentUser.getRole() != User.Role.WARDEN) {
+            return;
+        }
+
+        Warden warden = wardenRepository.findByUserId(currentUser.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Warden not found for userId: " + currentUser.getId()));
+
+        if (warden.getBlock() == null) {
+            throw new AccessDeniedException(
+                    "Warden is not assigned to a hostel block");
+        }
+
+        if (room.getBlock() == null) {
+            throw new AccessDeniedException(
+                    "Room is not assigned to a hostel block");
+        }
+
+        if (!warden.getBlock().getId().equals(room.getBlock().getId())) {
+            throw new AccessDeniedException(
+                    "You are not authorized to manage rooms in another block");
+        }
     }
 
     public ApiResponse<RoomDto> addRoom(RoomDto roomDto) {
@@ -136,6 +184,8 @@ public class RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
+        verifyWardenRoomAccess(room);
+
         if (room.getStatus() != Room.RoomStatus.AVAILABLE) {
             throw new BadRequestException("Room is not available for allocation");
         }
@@ -181,6 +231,9 @@ public class RoomService {
         }
 
         Room room = student.getRoom();
+
+        verifyWardenRoomAccess(room);
+
         String roomNo = room.getRoomNo();
         String blockName = room.getBlock().getName();
         String studentEmail = student.getUser().getEmail();
