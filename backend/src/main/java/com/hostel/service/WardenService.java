@@ -3,8 +3,12 @@ package com.hostel.service;
 import com.hostel.dto.ApiResponse;
 import com.hostel.dto.AuthResponse;
 import com.hostel.dto.BulkImportResultDto;
+import com.hostel.dto.ComplaintDto;
 import com.hostel.dto.DashboardStatsDto;
+import com.hostel.dto.LeaveRequestDto;
+import com.hostel.dto.PageResponse;
 import com.hostel.dto.RegisterRequest;
+import com.hostel.dto.StudentDetailsDto;
 import com.hostel.dto.StudentProfileDto;
 
 import com.hostel.entity.Complaint;
@@ -18,6 +22,10 @@ import com.hostel.entity.Warden;
 import com.hostel.exception.BadRequestException;
 import com.hostel.exception.DuplicateResourceException;
 import com.hostel.exception.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 
 import com.hostel.repository.ComplaintRepository;
 import com.hostel.repository.HostelBlockRepository;
@@ -397,6 +405,186 @@ public class WardenService {
                         .collect(Collectors.toList());
 
         return ApiResponse.success(dtos);
+    }
+
+    // ============================================================
+    // SEARCH STUDENTS BY WARDEN BLOCK (SERVER-SIDE)
+    // SEARCH + GENDER + ROOM STATUS + PAGINATION
+    // WARDEN ONLY — block always resolved from SecurityContext
+    // ============================================================
+
+    private static final int DEFAULT_STUDENT_PAGE_SIZE = 10;
+    private static final int MAX_STUDENT_PAGE_SIZE = 50;
+
+    public ApiResponse<PageResponse<StudentProfileDto>>
+    searchStudentsByWardenBlock(Long wardenUserId,
+                                String search,
+                                String gender,
+                                String roomStatus,
+                                Integer page,
+                                Integer size) {
+
+        Warden warden =
+                wardenRepository.findByUserId(wardenUserId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Warden not found for userId: "
+                                                + wardenUserId
+                                ));
+
+        HostelBlock block = warden.getBlock();
+
+        int safePage = (page == null || page < 0) ? 0 : page;
+        int safeSize = (size == null || size <= 0)
+                ? DEFAULT_STUDENT_PAGE_SIZE
+                : Math.min(size, MAX_STUDENT_PAGE_SIZE);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        // No block assigned — safe empty page (matches list behavior)
+        if (block == null) {
+            return ApiResponse.success(
+                    PageResponse.fromPage(Page.empty(pageable))
+            );
+        }
+
+        String safeSearch = (search == null || search.isBlank())
+                ? null
+                : search.trim();
+
+        Student.Gender genderEnum = parseGenderFilter(gender);
+        Room.RoomStatus roomStatusEnum = parseRoomStatusFilter(roomStatus);
+
+        Page<Student> studentPage =
+                studentRepository.searchByBlock(
+                        block.getId(),
+                        safeSearch,
+                        genderEnum,
+                        roomStatusEnum,
+                        pageable
+                );
+
+        PageResponse<StudentProfileDto> response =
+                PageResponse.fromPage(studentPage, this::mapStudentToDto);
+
+        return ApiResponse.success(response);
+    }
+
+    private Student.Gender parseGenderFilter(String gender) {
+        if (gender == null || gender.isBlank()) {
+            return null;
+        }
+        try {
+            return Student.Gender.valueOf(gender.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid gender: " + gender
+                    + " (allowed: MALE, FEMALE, OTHER)");
+        }
+    }
+
+    private Room.RoomStatus parseRoomStatusFilter(String roomStatus) {
+        if (roomStatus == null || roomStatus.isBlank()) {
+            return null;
+        }
+        try {
+            return Room.RoomStatus.valueOf(roomStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid roomStatus: " + roomStatus
+                    + " (allowed: AVAILABLE, OCCUPIED, MAINTENANCE)");
+        }
+    }
+
+    // ============================================================
+    // STUDENT DETAILS FOR WARDEN (IDOR-SAFE)
+    // WARDEN ONLY — student must belong to warden's block
+    // ============================================================
+
+    private static final int RECENT_RECORD_LIMIT = 5;
+
+    public ApiResponse<StudentDetailsDto> getStudentDetailsByWarden(
+            Long wardenUserId,
+            Long studentId) {
+
+        Warden warden =
+                wardenRepository.findByUserId(wardenUserId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Warden not found for userId: "
+                                                + wardenUserId
+                                ));
+
+        HostelBlock wardenBlock = warden.getBlock();
+
+        if (wardenBlock == null) {
+            throw new AccessDeniedException(
+                    "Warden is not assigned to a hostel block");
+        }
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Student", studentId));
+
+        if (student.getRoom() == null ||
+                student.getRoom().getBlock() == null ||
+                !wardenBlock.getId().equals(
+                        student.getRoom().getBlock().getId())) {
+            throw new AccessDeniedException(
+                    "You are not authorized to access this student");
+        }
+
+        User user = student.getUser();
+        Room room = student.getRoom();
+
+        List<LeaveRequestDto> recentLeaves =
+                leaveRequestRepository
+                        .findByStudentIdOrderByAppliedAtDesc(student.getId())
+                        .stream()
+                        .limit(RECENT_RECORD_LIMIT)
+                        .map(LeaveRequestDto::fromEntity)
+                        .collect(Collectors.toList());
+
+        List<ComplaintDto> recentComplaints =
+                complaintRepository
+                        .findByStudentIdOrderByCreatedAtDesc(student.getId())
+                        .stream()
+                        .limit(RECENT_RECORD_LIMIT)
+                        .map(ComplaintDto::fromEntity)
+                        .collect(Collectors.toList());
+
+        StudentDetailsDto details = StudentDetailsDto.builder()
+                .id(student.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .enrollmentNo(student.getEnrollmentNo())
+                .parentContact(student.getParentContact())
+                .address(student.getAddress())
+                .dateOfBirth(student.getDateOfBirth())
+                .gender(
+                        student.getGender() != null
+                                ? student.getGender().name()
+                                : null
+                )
+                .profileImageUrl(student.getProfileImageUrl())
+                .roomId(room.getId())
+                .roomNo(room.getRoomNo())
+                .floor(room.getFloor())
+                .capacity(room.getCapacity())
+                .occupants(room.getOccupants())
+                .status(
+                        room.getStatus() != null
+                                ? room.getStatus().name()
+                                : null
+                )
+                .blockName(
+                        room.getBlock() != null
+                                ? room.getBlock().getName()
+                                : null
+                )
+                .recentLeaves(recentLeaves)
+                .recentComplaints(recentComplaints)
+                .build();
+
+        return ApiResponse.success(details);
     }
 
     // ============================================================

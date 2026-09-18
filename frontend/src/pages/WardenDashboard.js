@@ -168,8 +168,15 @@ const DashboardHome = () => {
 };
 
 const WardenManageStudents = () => {
+  const PAGE_SIZE = 10;
   const [students, setStudents] = useState([]);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [roomStatusFilter, setRoomStatusFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -178,27 +185,69 @@ const WardenManageStudents = () => {
   const [importing, setImporting] = useState(false);
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkResult, setBulkResult] = useState(null);
+  const [detailsId, setDetailsId] = useState(null);
+  const [details, setDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const emptyForm = {
     name: '', email: '', enrollmentNo: '', password: '', confirmPassword: '',
     phone: '', parentContact: '', address: '', dateOfBirth: '', gender: '',
   };
   const [form, setForm] = useState(emptyForm);
 
+  // Debounce search input before querying the server
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const fetchStudents = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await wardenService.getStudents();
-      const list = Array.isArray(data) ? data : [];
+      const data = await wardenService.getStudents({
+        search: search || undefined,
+        gender: genderFilter || undefined,
+        roomStatus: roomStatusFilter || undefined,
+        page,
+        size: PAGE_SIZE,
+      });
+      const list = Array.isArray(data) ? data : (data?.content || []);
       setStudents(list);
+      setTotalPages(data?.totalPages || 0);
+      setTotalElements(data?.totalElements ?? list.length);
       return list;
     } catch (err) {
-      toast.error('Failed to load students');
+      toast.error(err.response?.data?.message || 'Failed to load students');
       return [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, genderFilter, roomStatusFilter, page]);
 
   useEffect(() => { fetchStudents(); }, [fetchStudents]);
+
+  const resetFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setGenderFilter('');
+    setRoomStatusFilter('');
+    setPage(0);
+  };
+
+  const openDetails = async (id) => {
+    setDetailsId(id);
+    setDetails(null);
+    setDetailsLoading(true);
+    try {
+      const data = await wardenService.getStudentDetails(id);
+      setDetails(data);
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to load student details.';
+      toast.error(message);
+      setDetailsId(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   const openCreate = () => {
     setForm(emptyForm);
@@ -252,11 +301,8 @@ const WardenManageStudents = () => {
     }
   };
 
-  const filtered = students.filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.email?.toLowerCase().includes(search.toLowerCase()) ||
-    s.enrollmentNo?.toLowerCase().includes(search.toLowerCase())
-  );
+  // NOTE: filtering, search and pagination are server-side.
+  // The `students` array below is exactly the current page from the server.
 
   const openImport = () => {
     setBulkFile(null);
@@ -343,7 +389,7 @@ const WardenManageStudents = () => {
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a237e] focus:border-transparent outline-none"
               placeholder="Search by name, email, or enrollment..."
-              value={search} onChange={(e) => setSearch(e.target.value)} />
+              value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
           <div className="flex gap-3">
             <button className="flex items-center gap-1 bg-[#1a237e] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#0d47a1] transition-colors cursor-pointer whitespace-nowrap"
@@ -352,13 +398,34 @@ const WardenManageStudents = () => {
               onClick={openImport}><FaUpload /> Import Students</button>
           </div>
         </div>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center mt-3">
+          <div className="flex items-center gap-2">
+            <FaFilter className="text-gray-400" />
+            <select className="border border-gray-300 rounded-lg text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#1a237e] bg-white cursor-pointer"
+              value={genderFilter} onChange={(e) => { setGenderFilter(e.target.value); setPage(0); }}>
+              <option value="">All genders</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <select className="border border-gray-300 rounded-lg text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#1a237e] bg-white cursor-pointer"
+              value={roomStatusFilter} onChange={(e) => { setRoomStatusFilter(e.target.value); setPage(0); }}>
+              <option value="">All room statuses</option>
+              <option value="AVAILABLE">Available</option>
+              <option value="OCCUPIED">Occupied</option>
+              <option value="MAINTENANCE">Maintenance</option>
+            </select>
+            <button className="text-sm text-[#1a237e] hover:underline cursor-pointer px-2 py-2.5"
+              onClick={resetFilters}>Reset filters</button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-6">
           <div className="w-8 h-8 border-4 border-gray-200 border-t-[#1a237e] rounded-full animate-spin" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : students.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-400">
           <FaUsers size={32} className="mb-2" />
           <p className="text-sm">No students found</p>
@@ -374,11 +441,12 @@ const WardenManageStudents = () => {
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Enrollment No.</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Room</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-medium">Phone</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Details</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s, i) => (
-                  <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                {students.map((s) => (
+                  <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-[#1a237e] text-white rounded-full flex items-center justify-center text-xs font-bold">{s.name?.charAt(0)}</div>
@@ -387,12 +455,105 @@ const WardenManageStudents = () => {
                     </td>
                     <td className="py-3 px-4 text-gray-700">{s.email}</td>
                     <td className="py-3 px-4 text-gray-700">{s.enrollmentNo || '\u2014'}</td>
-                    <td className="py-3 px-4 text-gray-700">{s.room?.roomNumber || s.roomNumber || 'Not allocated'}</td>
+                    <td className="py-3 px-4 text-gray-700">{s.roomNo || 'Not allocated'}</td>
                     <td className="py-3 px-4 text-gray-700">{s.phone || '\u2014'}</td>
+                    <td className="py-3 px-4">
+                      <button className="flex items-center gap-1 text-[#1a237e] hover:underline text-sm cursor-pointer"
+                        onClick={() => openDetails(s.id)}><FaEye /> View</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Showing {totalElements === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalElements)} of {totalElements} students
+            </p>
+            <div className="flex items-center gap-3">
+              <button disabled={page <= 0}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page - 1)}>Previous</button>
+              <span className="text-xs text-gray-500">Page {totalPages === 0 ? 0 : page + 1} of {totalPages}</span>
+              <button disabled={page + 1 >= totalPages}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page + 1)}>Next</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailsId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { if (!detailsLoading) { setDetailsId(null); setDetails(null); } }}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><FaEye className="text-[#1a237e]" /> Student Details</h3>
+              <button className="text-gray-400 hover:text-gray-600 cursor-pointer" disabled={detailsLoading} onClick={() => { setDetailsId(null); setDetails(null); }}><FaTimes /></button>
+            </div>
+            {detailsLoading || !details ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="w-8 h-8 border-4 border-gray-200 border-t-[#1a237e] rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <h4 className="text-sm font-bold text-[#1a237e] uppercase tracking-wide mb-2">Profile</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <p><strong className="text-gray-700">Name:</strong> <span className="text-gray-900">{details.name}</span></p>
+                    <p><strong className="text-gray-700">Email:</strong> <span className="text-gray-900">{details.email}</span></p>
+                    <p><strong className="text-gray-700">Phone:</strong> <span className="text-gray-900">{details.phone || '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Enrollment No:</strong> <span className="text-gray-900">{details.enrollmentNo}</span></p>
+                    <p><strong className="text-gray-700">Gender:</strong> <span className="text-gray-900">{details.gender || '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Date of Birth:</strong> <span className="text-gray-900">{details.dateOfBirth || '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Parent Contact:</strong> <span className="text-gray-900">{details.parentContact || '\u2014'}</span></p>
+                    <p className="md:col-span-2"><strong className="text-gray-700">Address:</strong> <span className="text-gray-900">{details.address || '\u2014'}</span></p>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#1a237e] uppercase tracking-wide mb-2">Room</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <p><strong className="text-gray-700">Block:</strong> <span className="text-gray-900">{details.blockName || '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Room:</strong> <span className="text-gray-900">{details.roomNo || '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Floor:</strong> <span className="text-gray-900">{details.floor ?? '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Capacity:</strong> <span className="text-gray-900">{details.capacity ?? '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Occupants:</strong> <span className="text-gray-900">{details.occupants ?? '\u2014'}</span></p>
+                    <p><strong className="text-gray-700">Status:</strong> <span className="text-gray-900">{details.status || '\u2014'}</span></p>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#1a237e] uppercase tracking-wide mb-2">Recent Leaves</h4>
+                  {(!details.recentLeaves || details.recentLeaves.length === 0) ? (
+                    <p className="text-sm text-gray-400">No recent leaves</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {details.recentLeaves.map((l) => (
+                        <div key={l.id} className="border border-gray-100 rounded-lg px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                          <span className="text-gray-900 font-medium">{l.fromDate} → {l.toDate}</span>
+                          <span className="text-gray-500 flex-1">{l.reason}</span>
+                          <span className="text-xs font-bold text-gray-700">{l.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#1a237e] uppercase tracking-wide mb-2">Recent Complaints</h4>
+                  {(!details.recentComplaints || details.recentComplaints.length === 0) ? (
+                    <p className="text-sm text-gray-400">No recent complaints</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {details.recentComplaints.map((c) => (
+                        <div key={c.id} className="border border-gray-100 rounded-lg px-3 py-2 text-sm flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                          <span className="text-gray-900 font-medium">{c.title}</span>
+                          <span className="text-gray-500 flex-1">{c.category || ''}</span>
+                          <span className="text-xs font-bold text-gray-700">{c.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -658,10 +819,10 @@ const WardenManageRooms = () => {
     try {
       const [rms, studs] = await Promise.all([
         roomService.getAllRooms(),
-        wardenService.getStudents(),
+        wardenService.getStudents({ page: 0, size: 50 }),
       ]);
       setRooms(Array.isArray(rms) ? rms : []);
-      setStudents(Array.isArray(studs) ? studs : []);
+      setStudents(Array.isArray(studs) ? studs : (studs?.content || []));
     } catch (err) {
       toast.error('Failed to load rooms');
     } finally {

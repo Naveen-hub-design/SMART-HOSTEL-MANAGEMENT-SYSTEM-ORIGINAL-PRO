@@ -4,7 +4,9 @@ import com.hostel.dto.ApiResponse;
 import com.hostel.dto.AuthResponse;
 import com.hostel.dto.BulkImportResultDto;
 import com.hostel.dto.DashboardStatsDto;
+import com.hostel.dto.PageResponse;
 import com.hostel.dto.RegisterRequest;
+import com.hostel.dto.StudentDetailsDto;
 import com.hostel.dto.StudentProfileDto;
 import com.hostel.entity.User;
 import com.hostel.exception.ResourceNotFoundException;
@@ -66,10 +68,26 @@ public class WardenController {
 
     @PreAuthorize("hasRole('WARDEN')")
     @GetMapping("/students")
-    @Operation(summary = "Get students under warden")
-    public ResponseEntity<ApiResponse<List<StudentProfileDto>>> getStudents() {
+    @Operation(summary = "Search students under warden (server-side search, filters, pagination)")
+    public ResponseEntity<ApiResponse<PageResponse<StudentProfileDto>>> getStudents(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String gender,
+            @RequestParam(required = false) String roomStatus,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         Long userId = getCurrentUserId();
-        return ResponseEntity.ok(wardenService.getStudentsByWardenBlock(userId));
+        return ResponseEntity.ok(wardenService.searchStudentsByWardenBlock(
+                userId, search, gender, roomStatus, page, size));
+    }
+
+    @PreAuthorize("hasRole('WARDEN')")
+    @GetMapping("/students/{id}")
+    @Operation(summary = "Get student details (warden block ownership verified)")
+    public ResponseEntity<ApiResponse<StudentDetailsDto>> getStudentDetails(
+            @PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        return ResponseEntity.ok(
+                wardenService.getStudentDetailsByWarden(userId, id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

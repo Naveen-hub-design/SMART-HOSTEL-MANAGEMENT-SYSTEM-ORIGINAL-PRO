@@ -6,8 +6,15 @@ const wardenService = {
     return response.data.data;
   },
 
-  getStudents: async () => {
-    const response = await API.get('/wardens/students');
+  getStudents: async ({ search, gender, roomStatus, page, size } = {}) => {
+    const response = await API.get('/wardens/students', {
+      params: { search, gender, roomStatus, page, size },
+    });
+    return response.data.data;
+  },
+
+  getStudentDetails: async (id) => {
+    const response = await API.get(`/wardens/students/${id}`);
     return response.data.data;
   },
 
