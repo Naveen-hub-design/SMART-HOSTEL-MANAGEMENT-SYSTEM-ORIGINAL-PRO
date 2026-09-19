@@ -44,4 +44,15 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
         @Param("blockId") Long blockId,
         @Param("status") LeaveRequest.LeaveStatus status
     );
+
+    @Query("""
+        SELECT l.status AS status, COUNT(l) AS leaveCount
+        FROM LeaveRequest l
+        JOIN l.student s
+        JOIN s.room r
+        JOIN r.block b
+        WHERE b.id = :blockId
+        GROUP BY l.status
+    """)
+    List<Object[]> countByBlockIdGroupByStatus(@Param("blockId") Long blockId);
 }

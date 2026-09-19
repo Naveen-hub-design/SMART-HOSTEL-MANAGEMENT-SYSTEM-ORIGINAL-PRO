@@ -27,6 +27,15 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Query(value = "SELECT COUNT(DISTINCT room_id) FROM students WHERE room_id IS NOT NULL", nativeQuery = true)
     long countUsedRooms();
 
+    @Query("""
+        SELECT COUNT(s)
+        FROM Student s
+        JOIN s.room r
+        JOIN r.block b
+        WHERE b.id = :blockId
+    """)
+    long countByBlockId(@Param("blockId") Long blockId);
+
     @Query(value = """
         SELECT DISTINCT s FROM Student s
         JOIN s.user u

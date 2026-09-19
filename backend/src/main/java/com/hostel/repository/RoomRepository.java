@@ -3,6 +3,7 @@ package com.hostel.repository;
 import com.hostel.entity.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,4 +35,13 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     @Query("SELECT AVG(r.rent) FROM Room r")
     Double findAverageRent();
+
+    @Query("""
+        SELECT r.status AS status, COUNT(r) AS roomCount
+        FROM Room r
+        JOIN r.block b
+        WHERE b.id = :blockId
+        GROUP BY r.status
+    """)
+    List<Object[]> countByBlockIdGroupByStatus(@Param("blockId") Long blockId);
 }

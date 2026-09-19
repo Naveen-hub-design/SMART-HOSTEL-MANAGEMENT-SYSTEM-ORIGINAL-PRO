@@ -46,4 +46,15 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     long countByBlockIdAndStatus(
             @Param("blockId") Long blockId,
             @Param("status") Complaint.ComplaintStatus status);
+
+    @Query("""
+        SELECT c.status AS status, COUNT(c) AS complaintCount
+        FROM Complaint c
+        JOIN c.student s
+        JOIN s.room r
+        JOIN r.block b
+        WHERE b.id = :blockId
+        GROUP BY c.status
+    """)
+    List<Object[]> countByBlockIdGroupByStatus(@Param("blockId") Long blockId);
 }

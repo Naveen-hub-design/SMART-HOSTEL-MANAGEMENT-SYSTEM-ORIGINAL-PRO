@@ -149,75 +149,62 @@ public class WardenService {
             return ApiResponse.success(empty);
         }
 
-        // Get rooms belonging ONLY to this warden's block
-        List<Room> blockRooms =
-                roomRepository.findByBlockId(block.getId());
+        Long blockId = block.getId();
 
-        long totalRooms = blockRooms.size();
+        // Aggregate dashboard statistics with ONE grouped query per domain.
+        // Every query is block-scoped in the database — no per-room/per-student fan-out.
 
-        long occupiedRooms = blockRooms.stream()
-                .filter(room ->
-                        room.getStatus() == Room.RoomStatus.OCCUPIED)
-                .count();
+        long totalStudents =
+                studentRepository.countByBlockId(blockId);
 
-        long availableRooms = blockRooms.stream()
-                .filter(room ->
-                        room.getStatus() == Room.RoomStatus.AVAILABLE)
-                .count();
+        long totalRooms = 0;
+        long occupiedRooms = 0;
+        long availableRooms = 0;
 
-        // Get students belonging to this block
-        List<Student> blockStudents = new ArrayList<>();
-
-        for (Room room : blockRooms) {
-            blockStudents.addAll(
-                    studentRepository.findByRoom(room)
-            );
+        for (Object[] row :
+                roomRepository.countByBlockIdGroupByStatus(blockId)) {
+            Room.RoomStatus status = (Room.RoomStatus) row[0];
+            long count = (Long) row[1];
+            totalRooms += count;
+            if (status == Room.RoomStatus.OCCUPIED) {
+                occupiedRooms = count;
+            } else if (status == Room.RoomStatus.AVAILABLE) {
+                availableRooms = count;
+            }
         }
-
-        long totalStudents = blockStudents.size();
 
         long pendingLeaves = 0;
         long approvedLeaves = 0;
+        long totalLeaves = 0;
+
+        for (Object[] row :
+                leaveRequestRepository.countByBlockIdGroupByStatus(blockId)) {
+            LeaveRequest.LeaveStatus status =
+                    (LeaveRequest.LeaveStatus) row[0];
+            long count = (Long) row[1];
+            totalLeaves += count;
+            if (status == LeaveRequest.LeaveStatus.PENDING) {
+                pendingLeaves = count;
+            } else if (status == LeaveRequest.LeaveStatus.APPROVED) {
+                approvedLeaves = count;
+            }
+        }
 
         long totalComplaints = 0;
         long pendingComplaints = 0;
         long resolvedComplaints = 0;
 
-        for (Student student : blockStudents) {
-
-            // Leave statistics
-            List<LeaveRequest> leaves =
-                    leaveRequestRepository.findByStudentId(student.getId());
-
-            pendingLeaves += leaves.stream()
-                    .filter(leave ->
-                            leave.getStatus() ==
-                                    LeaveRequest.LeaveStatus.PENDING)
-                    .count();
-
-            approvedLeaves += leaves.stream()
-                    .filter(leave ->
-                            leave.getStatus() ==
-                                    LeaveRequest.LeaveStatus.APPROVED)
-                    .count();
-
-            // Complaint statistics
-            List<Complaint> complaints =
-                    complaintRepository.findByStudentId(student.getId());
-
-            totalComplaints += complaints.size();
-
-            pendingComplaints += complaints.stream()
-                    .filter(complaint ->
-                            complaint.getStatus() ==
-                                    Complaint.ComplaintStatus.PENDING)
-                    .count();
-
-            resolvedComplaints += complaints.stream()
-                    .filter(complaint ->
-                            complaint.getStatus() ==
-                                    Complaint.ComplaintStatus.RESOLVED)
-                    .count();
+        for (Object[] row :
+                complaintRepository.countByBlockIdGroupByStatus(blockId)) {
+            Complaint.ComplaintStatus status =
+                    (Complaint.ComplaintStatus) row[0];
+            long count = (Long) row[1];
+            totalComplaints += count;
+            if (status == Complaint.ComplaintStatus.PENDING) {
+                pendingComplaints = count;
+            } else if (status == Complaint.ComplaintStatus.RESOLVED) {
+                resolvedComplaints = count;
+            }
         }
 
         DashboardStatsDto stats = DashboardStatsDto.builder()
@@ -228,14 +215,7 @@ public class WardenService {
                 .totalComplaints(totalComplaints)
                 .pendingComplaints(pendingComplaints)
                 .resolvedComplaints(resolvedComplaints)
-                .totalLeaves(
-                        blockStudents.stream()
-                                .mapToLong(student ->
-                                        leaveRequestRepository
-                                                .findByStudentId(student.getId())
-                                                .size())
-                                .sum()
-                )
+                .totalLeaves(totalLeaves)
                 .pendingLeaves(pendingLeaves)
                 .approvedLeaves(approvedLeaves)
                 .build();
