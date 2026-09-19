@@ -54,6 +54,31 @@ public class RoomService {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
+    private User getCurrentUser() {
+        String currentUserEmail = getCurrentUserEmail();
+        return userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with email: " + currentUserEmail));
+    }
+
+    /**
+     * Resolves the assigned block of the given warden user.
+     * Used to scope room READ operations to the warden's own block.
+     */
+    private Long getWardenBlockId(Long wardenUserId) {
+        Warden warden = wardenRepository.findByUserId(wardenUserId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Warden not found for userId: " + wardenUserId));
+
+        if (warden.getBlock() == null) {
+            throw new AccessDeniedException(
+                    "Warden is not assigned to a hostel block");
+        }
+
+        return warden.getBlock().getId();
+    }
+
     /**
      * WARDEN callers may only manage rooms inside their own assigned block.
      * ADMIN (and any other role already permitted by the controller) passes through unchanged.
@@ -147,7 +172,20 @@ public class RoomService {
     }
 
     public ApiResponse<List<RoomDto>> getAllRooms() {
-        List<Room> rooms = roomRepository.findAll();
+        User currentUser = getCurrentUser();
+
+        List<Room> rooms;
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+            rooms = roomRepository.findByBlockId(
+                    getWardenBlockId(currentUser.getId()));
+        } else if (currentUser.getRole() == User.Role.ADMIN) {
+            rooms = roomRepository.findAll();
+        } else {
+            throw new AccessDeniedException(
+                    "You are not authorized to view rooms");
+        }
+
         List<RoomDto> dtos = rooms.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
@@ -159,11 +197,37 @@ public class RoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+            verifyWardenRoomAccess(room);
+        } else if (currentUser.getRole() != User.Role.ADMIN) {
+            throw new AccessDeniedException(
+                    "You are not authorized to view rooms");
+        }
+
         return ApiResponse.success(mapToDto(room));
     }
 
     public ApiResponse<List<RoomDto>> getRoomsByBlock(Long blockId) {
-        List<Room> rooms = roomRepository.findByBlockId(blockId);
+        User currentUser = getCurrentUser();
+
+        List<Room> rooms;
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+            Long ownBlockId = getWardenBlockId(currentUser.getId());
+            if (!ownBlockId.equals(blockId)) {
+                throw new AccessDeniedException(
+                        "You are not authorized to view rooms in another block");
+            }
+            rooms = roomRepository.findByBlockId(ownBlockId);
+        } else if (currentUser.getRole() == User.Role.ADMIN) {
+            rooms = roomRepository.findByBlockId(blockId);
+        } else {
+            throw new AccessDeniedException(
+                    "You are not authorized to view rooms");
+        }
+
         List<RoomDto> dtos = rooms.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
@@ -172,7 +236,21 @@ public class RoomService {
     }
 
     public ApiResponse<List<RoomDto>> getAvailableRooms() {
-        List<Room> rooms = roomRepository.findAvailableRooms();
+        User currentUser = getCurrentUser();
+
+        List<Room> rooms;
+
+        if (currentUser.getRole() == User.Role.WARDEN) {
+            rooms = roomRepository.findByStatusAndBlockId(
+                    Room.RoomStatus.AVAILABLE,
+                    getWardenBlockId(currentUser.getId()));
+        } else if (currentUser.getRole() == User.Role.ADMIN) {
+            rooms = roomRepository.findAvailableRooms();
+        } else {
+            throw new AccessDeniedException(
+                    "You are not authorized to view rooms");
+        }
+
         List<RoomDto> dtos = rooms.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());

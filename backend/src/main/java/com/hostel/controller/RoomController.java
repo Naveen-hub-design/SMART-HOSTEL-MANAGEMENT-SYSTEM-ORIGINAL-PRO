@@ -55,24 +55,28 @@ public class RoomController {
         return ResponseEntity.ok(roomService.deleteRoom(id));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
     @GetMapping
     @Operation(summary = "Get all rooms")
     public ResponseEntity<ApiResponse<List<RoomDto>>> getAllRooms() {
         return ResponseEntity.ok(roomService.getAllRooms());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
     @GetMapping("/{id}")
     @Operation(summary = "Get room by ID")
     public ResponseEntity<ApiResponse<RoomDto>> getRoomById(@PathVariable Long id) {
         return ResponseEntity.ok(roomService.getRoomById(id));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
     @GetMapping("/block/{blockId}")
     @Operation(summary = "Get rooms by block")
     public ResponseEntity<ApiResponse<List<RoomDto>>> getRoomsByBlock(@PathVariable Long blockId) {
         return ResponseEntity.ok(roomService.getRoomsByBlock(blockId));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
     @GetMapping("/available")
     @Operation(summary = "Get available rooms")
     public ResponseEntity<ApiResponse<List<RoomDto>>> getAvailableRooms() {
