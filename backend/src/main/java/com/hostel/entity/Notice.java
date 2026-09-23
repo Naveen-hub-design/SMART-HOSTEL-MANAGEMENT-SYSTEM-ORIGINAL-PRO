@@ -28,6 +28,15 @@ public class Notice {
 
     private String postedBy;
 
+    /**
+     * Authoritative creator for update/delete authorization.
+     * Set server-side at creation from the authenticated user; never
+     * accepted from client input. Null for legacy rows (admin-only).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
     @Column(updatable = false)
     private LocalDateTime postedAt;
 

@@ -264,11 +264,12 @@ public class RoomService {
 
         verifyWardenRoomAccess(room);
 
-        if (room.getStatus() != Room.RoomStatus.AVAILABLE) {
-            throw new BadRequestException("Room is not available for allocation");
+        if (room.getStatus() == Room.RoomStatus.MAINTENANCE) {
+            throw new BadRequestException("Room is under maintenance and cannot be allocated");
         }
 
-        if (room.getOccupants() >= room.getCapacity()) {
+        int currentOccupants = room.getOccupants() == null ? 0 : room.getOccupants();
+        if (currentOccupants >= room.getCapacity()) {
             throw new BadRequestException("Room is at full capacity");
         }
 
@@ -282,9 +283,11 @@ public class RoomService {
         student.setRoom(room);
         studentRepository.save(student);
 
-        room.setOccupants(room.getOccupants() == null ? 1 : room.getOccupants() + 1);
+        room.setOccupants(currentOccupants + 1);
         if (room.getOccupants() >= room.getCapacity()) {
             room.setStatus(Room.RoomStatus.OCCUPIED);
+        } else {
+            room.setStatus(Room.RoomStatus.AVAILABLE);
         }
         roomRepository.save(room);
 
@@ -320,9 +323,14 @@ public class RoomService {
         student.setRoom(null);
         studentRepository.save(student);
 
-        room.setOccupants(Math.max(0, room.getOccupants() - 1));
-        if (room.getOccupants() == 0) {
-            room.setStatus(Room.RoomStatus.AVAILABLE);
+        int remainingOccupants = room.getOccupants() == null
+                ? 0
+                : Math.max(0, room.getOccupants() - 1);
+        room.setOccupants(remainingOccupants);
+        if (room.getStatus() != Room.RoomStatus.MAINTENANCE) {
+            room.setStatus(remainingOccupants < room.getCapacity()
+                    ? Room.RoomStatus.AVAILABLE
+                    : Room.RoomStatus.OCCUPIED);
         }
         roomRepository.save(room);
 

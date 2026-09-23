@@ -7,6 +7,8 @@ import com.hostel.entity.User;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.NoticeRepository;
 import com.hostel.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,34 @@ public class NoticeService {
         this.emailService = emailService;
     }
 
+    private User getCurrentUser() {
+        String currentUserEmail = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+        return userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with email: " + currentUserEmail));
+    }
+
+    /**
+     * Only ADMIN (global) or the creating user may manage a notice.
+     * Legacy notices (createdBy == null) are ADMIN-only. Ownership is
+     * resolved exclusively from the server-side createdBy relationship —
+     * never from postedBy display text or client input.
+     */
+    private void verifyNoticeManageAccess(User currentUser, Notice notice) {
+        if (currentUser.getRole() == User.Role.ADMIN) {
+            return;
+        }
+        if (notice.getCreatedBy() != null
+                && notice.getCreatedBy().getId() != null
+                && notice.getCreatedBy().getId()
+                        .equals(currentUser.getId())) {
+            return;
+        }
+        throw new AccessDeniedException(
+                "You are not authorized to manage this notice");
+    }
+
     public ApiResponse<Void> createNotice(Long userId, NoticeDto noticeDto) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
@@ -46,6 +76,7 @@ public class NoticeService {
                 .title(noticeDto.getTitle())
                 .content(noticeDto.getContent())
                 .postedBy(user.getName())
+                .createdBy(user)
                 .expiresAt(noticeDto.getExpiresAt())
                 .targetRole(targetRole)
                 .build();
@@ -67,6 +98,8 @@ public class NoticeService {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Notice", noticeId));
 
+        verifyNoticeManageAccess(getCurrentUser(), notice);
+
         notice.setTitle(noticeDto.getTitle());
         notice.setContent(noticeDto.getContent());
         notice.setExpiresAt(noticeDto.getExpiresAt());
@@ -81,6 +114,8 @@ public class NoticeService {
     public ApiResponse<Void> deleteNotice(Long noticeId) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Notice", noticeId));
+
+        verifyNoticeManageAccess(getCurrentUser(), notice);
 
         noticeRepository.delete(notice);
         return ApiResponse.success("Notice deleted successfully", null);

@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS notices (
     posted_at VARCHAR(50) DEFAULT CURRENT_TIMESTAMP,
     expires_at VARCHAR(50),
     target_role VARCHAR(50) DEFAULT 'ALL',
+    created_by BIGINT,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_notices_role (target_role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

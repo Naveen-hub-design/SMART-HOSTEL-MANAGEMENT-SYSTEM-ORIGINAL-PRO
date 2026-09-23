@@ -52,8 +52,15 @@ public class StudentService {
         student.setParentContact(profileDto.getParentContact());
         student.setAddress(profileDto.getAddress());
         student.setDateOfBirth(profileDto.getDateOfBirth());
-        if (profileDto.getGender() != null) {
-            student.setGender(Student.Gender.valueOf(profileDto.getGender().toUpperCase()));
+        if (profileDto.getGender() != null && !profileDto.getGender().isBlank()) {
+            try {
+                student.setGender(Student.Gender.valueOf(
+                        profileDto.getGender().trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid gender: "
+                        + profileDto.getGender()
+                        + " (allowed: MALE, FEMALE, OTHER)");
+            }
         }
         student.setProfileImageUrl(profileDto.getProfileImageUrl());
         studentRepository.save(student);

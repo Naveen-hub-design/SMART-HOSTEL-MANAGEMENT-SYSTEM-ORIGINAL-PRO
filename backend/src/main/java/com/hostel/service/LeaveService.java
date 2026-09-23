@@ -7,6 +7,8 @@ import com.hostel.entity.LeaveRequest;
 import com.hostel.entity.Student;
 import com.hostel.entity.User;
 import com.hostel.entity.Warden;
+import com.hostel.exception.BadRequestException;
+import com.hostel.exception.DuplicateResourceException;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.LeaveRequestRepository;
 import com.hostel.repository.StudentRepository;
@@ -17,7 +19,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,10 +99,13 @@ public class LeaveService {
         Student student = studentRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found for userId: " + userId));
 
+        validateLeaveDates(student.getId(), leaveRequestDto.getFromDate(),
+                leaveRequestDto.getToDate());
+
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .student(student)
-                .fromDate(leaveRequestDto.getFromDate())
-                .toDate(leaveRequestDto.getToDate())
+                .fromDate(leaveRequestDto.getFromDate().trim())
+                .toDate(leaveRequestDto.getToDate().trim())
                 .reason(leaveRequestDto.getReason())
                 .status(LeaveRequest.LeaveStatus.PENDING)
                 .build();
@@ -107,6 +114,55 @@ public class LeaveService {
         auditService.logAction("LEAVE_APPLIED", getCurrentUserEmail(), null, "LEAVE", leaveRequest.getId(),
                 "Leave applied from " + leaveRequest.getFromDate() + " to " + leaveRequest.getToDate());
         return ApiResponse.success("Leave applied successfully", null);
+    }
+
+    private static LocalDate parseLeaveDate(String date) {
+        if (date == null || date.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date.trim());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Service-layer leave validation: required ISO dates, ordered range,
+     * and no overlap with the student's active (PENDING/APPROVED) leaves.
+     * Malformed input is a 400; a genuine scheduling conflict is a 409.
+     */
+    private void validateLeaveDates(Long studentId, String fromDate, String toDate) {
+        LocalDate from = parseLeaveDate(fromDate);
+        LocalDate to = parseLeaveDate(toDate);
+        if (from == null || to == null) {
+            throw new BadRequestException(
+                    "Leave from-date and to-date are required in YYYY-MM-DD format");
+        }
+        if (from.isAfter(to)) {
+            throw new BadRequestException(
+                    "Leave from-date must be on or before to-date");
+        }
+
+        for (LeaveRequest existing :
+                leaveRequestRepository.findByStudentId(studentId)) {
+            if (existing.getStatus() != LeaveRequest.LeaveStatus.PENDING
+                    && existing.getStatus() != LeaveRequest.LeaveStatus.APPROVED) {
+                continue;
+            }
+            LocalDate existingFrom = parseLeaveDate(existing.getFromDate());
+            LocalDate existingTo = parseLeaveDate(existing.getToDate());
+            if (existingFrom == null || existingTo == null) {
+                continue;
+            }
+            if (!from.isAfter(existingTo) && !existingFrom.isAfter(to)) {
+                throw new DuplicateResourceException(
+                        "Leave request overlaps with an existing "
+                                + existing.getStatus().name()
+                                + " leave (" + existing.getFromDate()
+                                + " to " + existing.getToDate() + ")");
+            }
+        }
     }
 
     public ApiResponse<List<LeaveRequestDto>> getAllLeaves() {
