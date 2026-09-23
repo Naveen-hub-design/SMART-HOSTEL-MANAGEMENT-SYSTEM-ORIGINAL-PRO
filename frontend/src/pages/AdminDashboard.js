@@ -7,6 +7,7 @@ import ProtectedRoute from '../components/common/ProtectedRoute';
 import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
 import adminService from '../services/adminService';
+import reportService from '../services/reportService';
 import wardenService from '../services/wardenService';
 import roomService from '../services/roomService';
 import leaveService from '../services/leaveService';
@@ -1338,6 +1339,9 @@ const AdminMessFeedback = () => {
 const AdminReports = () => {
   const [reports, setReports] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadFormat, setDownloadFormat] = useState('pdf');
+  const [reportType, setReportType] = useState('dashboard-summary');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -1349,6 +1353,29 @@ const AdminReports = () => {
     }).catch(() => toast.error('Failed to load reports'))
       .finally(() => setLoading(false));
   }, []);
+
+  const reportDownloaders = {
+    'dashboard-summary': reportService.downloadDashboardSummaryReport,
+    students: reportService.downloadStudentsReport,
+    rooms: reportService.downloadRoomsReport,
+    leaves: reportService.downloadLeavesReport,
+    complaints: reportService.downloadComplaintsReport,
+  };
+
+  const handleExport = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const download = reportDownloaders[reportType]
+        || reportService.downloadDashboardSummaryReport;
+      const filename = await download(downloadFormat);
+      toast.success(`Report downloaded: ${filename}`);
+    } catch (err) {
+      toast.error(err.message || 'Unable to download the report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -1404,9 +1431,25 @@ const AdminReports = () => {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><FaFileAlt /> Reports & Analytics</h1>
           <p className="text-sm text-gray-500">System-wide statistics and insights</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-[#1a237e] hover:text-[#1a237e]" onClick={() => toast.info('Report download initiated')}>
-          <FaDownload /> Export Report
-        </button>
+        <div className="flex items-center gap-2">
+          <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+            value={reportType} onChange={(e) => setReportType(e.target.value)} disabled={downloading}>
+            <option value="dashboard-summary">Hostel Overview</option>
+            <option value="students">Student Report</option>
+            <option value="rooms">Room &amp; Occupancy Report</option>
+            <option value="leaves">Leave Report</option>
+            <option value="complaints">Complaint Report</option>
+            <option value="dashboard-summary">Monthly Summary</option>
+          </select>
+          <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+            value={downloadFormat} onChange={(e) => setDownloadFormat(e.target.value)} disabled={downloading}>
+            <option value="pdf">PDF</option>
+            <option value="xlsx">Excel</option>
+          </select>
+          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-[#1a237e] hover:text-[#1a237e] disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleExport} disabled={downloading}>
+            <FaDownload /> {downloading ? 'Exporting...' : 'Export Report'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

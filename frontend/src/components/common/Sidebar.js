@@ -27,6 +27,7 @@ const menuConfig = {
     { path: '/warden/leaves', label: 'Leave Requests', icon: <FaCalendarAlt /> },
     { path: '/warden/complaints', label: 'Complaints', icon: <FaExclamationTriangle /> },
     { path: '/warden/notices', label: 'Notices', icon: <FaBullhorn /> },
+    { path: '/warden/reports', label: 'Reports', icon: <FaFileAlt /> },
   ],
   admin: [
     { path: '/admin/dashboard', label: 'Dashboard', icon: <FaChartBar /> },
