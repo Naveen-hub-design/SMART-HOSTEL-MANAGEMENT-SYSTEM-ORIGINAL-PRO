@@ -126,7 +126,9 @@ public class StudentService {
                 .address(student.getAddress())
                 .dateOfBirth(student.getDateOfBirth())
                 .gender(student.getGender() != null ? student.getGender().name() : null)
-                .profileImageUrl(student.getProfileImageUrl())
+                .profileImageUrl(user.getProfileImageUrl() != null
+                        ? user.getProfileImageUrl()
+                        : student.getProfileImageUrl())
                 .roomNo(student.getRoom() != null ? student.getRoom().getRoomNo() : null)
                 .blockName(student.getRoom() != null ? student.getRoom().getBlock().getName() : null)
                 .roomId(student.getRoom() != null ? student.getRoom().getId() : null)

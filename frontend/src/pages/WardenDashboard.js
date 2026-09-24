@@ -11,6 +11,7 @@ import WardenLeaves from './warden/WardenLeaves';
 import WardenComplaints from './warden/WardenComplaints';
 import WardenNotices from './warden/WardenNotices';
 import WardenReports from './warden/WardenReports';
+import WardenProfile from './warden/WardenProfile';
 
 const WardenDashboard = () => (
   <ProtectedRoute allowedRoles={['warden']}>
@@ -27,6 +28,7 @@ const WardenDashboard = () => (
           <Route path="complaints" element={<WardenComplaints />} />
           <Route path="notices" element={<WardenNotices />} />
           <Route path="reports" element={<WardenReports />} />
+          <Route path="profile" element={<WardenProfile />} />
           <Route path="marketplace" element={<div className="p-6"><div className="flex flex-col items-center justify-center py-12 text-gray-400"><FaStore size={32} className="mb-2" /><p className="text-sm">Marketplace management coming soon</p></div></div>} />
           <Route path="lost-found" element={<div className="p-6"><div className="flex flex-col items-center justify-center py-12 text-gray-400"><FaSearch size={32} className="mb-2" /><p className="text-sm">Lost & Found management coming soon</p></div></div>} />
           <Route path="mess-feedback" element={<div className="p-6"><div className="flex flex-col items-center justify-center py-12 text-gray-400"><FaClipboardList size={32} className="mb-2" /><p className="text-sm">Mess Feedback management coming soon</p></div></div>} />

@@ -28,6 +28,7 @@ const menuConfig = {
     { path: '/warden/complaints', label: 'Complaints', icon: <FaExclamationTriangle /> },
     { path: '/warden/notices', label: 'Notices', icon: <FaBullhorn /> },
     { path: '/warden/reports', label: 'Reports', icon: <FaFileAlt /> },
+    { path: '/warden/profile', label: 'My Profile', icon: <FaUser /> },
   ],
   admin: [
     { path: '/admin/dashboard', label: 'Dashboard', icon: <FaChartBar /> },
@@ -44,6 +45,7 @@ const menuConfig = {
     { path: '/admin/audit', label: 'Audit Logs', icon: <FaClipboardList /> },
     { path: '/admin/reports', label: 'Reports', icon: <FaFileAlt /> },
     { path: '/admin/ai-analytics', label: 'AI Analytics', icon: <FaRobot /> },
+    { path: '/admin/profile', label: 'My Profile', icon: <FaUser /> },
   ],
 };
 

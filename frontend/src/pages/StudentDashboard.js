@@ -8,6 +8,7 @@ import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import studentService from '../services/studentService';
+import accountService from '../services/accountService';
 import leaveService from '../services/leaveService';
 import complaintService from '../services/complaintService';
 import noticeService from '../services/noticeService';
@@ -221,6 +222,9 @@ const StudentProfile = () => {
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [imgFile, setImgFile] = useState(null);
+  const [imgPreview, setImgPreview] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     studentService.getProfile()
@@ -256,6 +260,38 @@ const StudentProfile = () => {
       toast.error(err.response?.data?.message || 'Password change failed');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!accountService.isAllowedImage(file)) {
+      toast.error('Only JPG, PNG or GIF images are allowed');
+      e.target.value = '';
+      return;
+    }
+    if (imgPreview) URL.revokeObjectURL(imgPreview);
+    setImgFile(file);
+    setImgPreview(URL.createObjectURL(file));
+  };
+
+  const handleImageUpload = async () => {
+    if (!imgFile) return toast.error('Please choose an image first');
+    setUploading(true);
+    try {
+      await accountService.uploadProfilePicture(imgFile);
+      const updated = await studentService.getProfile();
+      setProfile(updated);
+      setEditData(updated);
+      if (imgPreview) URL.revokeObjectURL(imgPreview);
+      setImgFile(null);
+      setImgPreview('');
+      toast.success('Profile picture updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Image upload failed');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -301,9 +337,28 @@ const StudentProfile = () => {
 
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-20 h-20 bg-[#1a237e] text-white rounded-full flex items-center justify-center text-3xl font-bold mb-2">
-            {profile.name?.charAt(0).toUpperCase() || <FaUser />}
-          </div>
+          {imgPreview || profile.profileImageUrl ? (
+            <img
+              src={imgPreview || accountService.resolveImageUrl(profile.profileImageUrl)}
+              alt="Profile"
+              className="w-20 h-20 object-cover rounded-full mb-2"
+            />
+          ) : (
+            <div className="w-20 h-20 bg-[#1a237e] text-white rounded-full flex items-center justify-center text-3xl font-bold mb-2">
+              {profile.name?.charAt(0).toUpperCase() || <FaUser />}
+            </div>
+          )}
+          <label className="text-xs text-[#1a237e] hover:underline cursor-pointer mb-2">
+            {profile.profileImageUrl || imgPreview ? 'Change Image' : 'Choose Image'}
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+          </label>
+          {imgFile && (
+            <button
+              className="px-4 py-1.5 bg-[#1a237e] text-white rounded-lg text-xs font-medium hover:bg-[#0d47a1] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleImageUpload} disabled={uploading}>
+              {uploading ? 'Uploading...' : 'Upload'}
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {fields.map((f, i) => (
