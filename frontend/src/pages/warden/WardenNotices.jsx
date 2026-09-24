@@ -55,7 +55,7 @@ const WardenNotices = () => {
 
   const startEdit = (notice) => {
     setEditing(notice);
-    setForm({ title: notice.title, content: notice.content, targetRole: notice.targetRole || 'ALL', expiryDate: notice.expiryDate?.slice(0, 10) || '' });
+    setForm({ title: notice.title, content: notice.content, targetRole: notice.targetRole || 'ALL', expiryDate: notice.expiresAt?.slice(0, 10) || notice.expiryDate?.slice(0, 10) || '' });
   };
 
   return (
@@ -137,7 +137,7 @@ const WardenNotices = () => {
                     <td className="py-3 px-4 font-semibold text-gray-900">{n.title}</td>
                     <td className="py-3 px-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{n.targetRole || n.target || 'ALL'}</span></td>
                     <td className="py-3 px-4 text-gray-700">{n.createdAt?.slice(0, 10)}</td>
-                    <td className="py-3 px-4 text-gray-700">{n.expiryDate?.slice(0, 10) || '\u2014'}</td>
+                    <td className="py-3 px-4 text-gray-700">{n.expiresAt?.slice(0, 10) || n.expiryDate?.slice(0, 10) || '\u2014'}</td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2">
                         <button className="flex items-center gap-1 bg-[#1a237e] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#0d47a1]"

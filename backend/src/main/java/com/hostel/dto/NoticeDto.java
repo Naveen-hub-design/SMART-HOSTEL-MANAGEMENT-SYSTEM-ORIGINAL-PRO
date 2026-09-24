@@ -32,6 +32,10 @@ public class NoticeDto {
     @Schema(example = "2024-03-15T23:59:59")
     private LocalDateTime expiresAt;
 
+    @Schema(description = "Write-only date input (YYYY-MM-DD); stored as end-of-day in expiresAt",
+            example = "2024-03-15")
+    private String expiryDate;
+
     @Schema(example = "ALL")
     private String targetRole;
 }

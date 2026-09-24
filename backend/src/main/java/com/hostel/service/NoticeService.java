@@ -4,6 +4,7 @@ import com.hostel.dto.ApiResponse;
 import com.hostel.dto.NoticeDto;
 import com.hostel.entity.Notice;
 import com.hostel.entity.User;
+import com.hostel.exception.BadRequestException;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.NoticeRepository;
 import com.hostel.repository.UserRepository;
@@ -12,6 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -77,7 +81,7 @@ public class NoticeService {
                 .content(noticeDto.getContent())
                 .postedBy(user.getName())
                 .createdBy(user)
-                .expiresAt(noticeDto.getExpiresAt())
+                .expiresAt(resolveExpiry(noticeDto))
                 .targetRole(targetRole)
                 .build();
         noticeRepository.save(notice);
@@ -102,7 +106,7 @@ public class NoticeService {
 
         notice.setTitle(noticeDto.getTitle());
         notice.setContent(noticeDto.getContent());
-        notice.setExpiresAt(noticeDto.getExpiresAt());
+        notice.setExpiresAt(resolveExpiry(noticeDto));
         if (noticeDto.getTargetRole() != null) {
             notice.setTargetRole(Notice.TargetRole.valueOf(noticeDto.getTargetRole().toUpperCase()));
         }
@@ -121,6 +125,27 @@ public class NoticeService {
         return ApiResponse.success("Notice deleted successfully", null);
     }
 
+    /**
+     * Resolves the expiry timestamp for create/update. A supplied
+     * date-only {@code expiryDate} (YYYY-MM-DD) wins and is stored as
+     * end-of-day so the selected date itself stays visible; otherwise an
+     * explicitly supplied {@code expiresAt} is kept; absent means
+     * non-expiring (null).
+     */
+    private LocalDateTime resolveExpiry(NoticeDto noticeDto) {
+        if (noticeDto.getExpiryDate() != null
+                && !noticeDto.getExpiryDate().isBlank()) {
+            try {
+                return LocalDate.parse(noticeDto.getExpiryDate().trim())
+                        .atTime(23, 59, 59);
+            } catch (DateTimeParseException e) {
+                throw new BadRequestException(
+                        "Invalid expiry date: expected YYYY-MM-DD");
+            }
+        }
+        return noticeDto.getExpiresAt();
+    }
+
     public ApiResponse<List<NoticeDto>> getAllNotices() {
         List<Notice> notices = noticeRepository.findAllOrderByPostedAtDesc();
         List<NoticeDto> dtos = notices.stream()
@@ -136,7 +161,10 @@ public class NoticeService {
         }
         Notice.TargetRole targetRole = Notice.TargetRole.valueOf(role.toUpperCase());
         List<Notice> notices = noticeRepository.findNoticesForRole(targetRole);
+        LocalDateTime now = LocalDateTime.now();
         List<NoticeDto> dtos = notices.stream()
+                .filter(notice -> notice.getExpiresAt() == null
+                        || !notice.getExpiresAt().isBefore(now))
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
 
@@ -151,6 +179,9 @@ public class NoticeService {
                 .postedBy(notice.getPostedBy())
                 .postedAt(notice.getPostedAt())
                 .expiresAt(notice.getExpiresAt())
+                .expiryDate(notice.getExpiresAt() != null
+                        ? notice.getExpiresAt().toLocalDate().toString()
+                        : null)
                 .targetRole(notice.getTargetRole().name())
                 .build();
     }
