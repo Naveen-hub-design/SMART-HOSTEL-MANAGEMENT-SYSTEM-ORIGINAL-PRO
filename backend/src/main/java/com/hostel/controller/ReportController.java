@@ -1,8 +1,10 @@
 package com.hostel.controller;
 
+import com.hostel.entity.AttendanceStatus;
 import com.hostel.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +12,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -113,6 +118,28 @@ public class ReportController {
     @Operation(summary = "Download dashboard summary as Excel")
     public ResponseEntity<byte[]> summaryXlsx() {
         return download(reportService.generateSummaryXlsx(),
+                XLSX_MEDIA_TYPE);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
+    @GetMapping(value = "/attendance.pdf", produces = "application/pdf")
+    @Operation(summary = "Download attendance report as PDF")
+    public ResponseEntity<byte[]> attendancePdf(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) AttendanceStatus status) {
+        return download(reportService.generateAttendancePdf(date, status),
+                MediaType.APPLICATION_PDF);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'WARDEN')")
+    @GetMapping(value = "/attendance.xlsx", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    @Operation(summary = "Download attendance report as Excel")
+    public ResponseEntity<byte[]> attendanceXlsx(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) AttendanceStatus status) {
+        return download(reportService.generateAttendanceXlsx(date, status),
                 XLSX_MEDIA_TYPE);
     }
 }

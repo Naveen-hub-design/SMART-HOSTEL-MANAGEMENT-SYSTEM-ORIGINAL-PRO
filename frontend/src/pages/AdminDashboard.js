@@ -15,6 +15,7 @@ import leaveService from '../services/leaveService';
 import complaintService from '../services/complaintService';
 import noticeService from '../services/noticeService';
 import marketplaceService from '../services/marketplaceService';
+import attendanceService from '../services/attendanceService';
 import lostFoundService from '../services/lostFoundService';
 import messFeedbackService from '../services/messFeedbackService';
 import aiService from '../services/aiService';
@@ -861,6 +862,213 @@ const AdminLeaves = () => {
   );
 };
 
+const AdminAttendance = () => {
+  const PAGE_SIZE = 10;
+  const [records, setRecords] = useState([]);
+  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [correctId, setCorrectId] = useState(null);
+  const [correctStatus, setCorrectStatus] = useState('PRESENT');
+  const [correctRemarks, setCorrectRemarks] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await attendanceService.getAttendance({
+        date: dateFilter || undefined,
+        status: statusFilter || undefined,
+        page,
+        size: PAGE_SIZE,
+      });
+      const list = Array.isArray(data) ? data : (data?.content || []);
+      setRecords(list);
+      setTotalPages(data?.totalPages || 0);
+      setTotalElements(data?.totalElements ?? list.length);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load attendance');
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFilter, statusFilter, page]);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const openCorrect = (record) => {
+    setCorrectId(record.id);
+    setCorrectStatus(record.status || 'PRESENT');
+    setCorrectRemarks(record.remarks || '');
+  };
+
+  const handleCorrect = async () => {
+    if (!correctId || saving) return;
+    setSaving(true);
+    try {
+      await attendanceService.updateAttendance(correctId, {
+        status: correctStatus,
+        remarks: correctRemarks,
+      });
+      toast.success('Attendance corrected');
+      setCorrectId(null);
+      fetchRecords();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to correct attendance.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const statusBadge = (status) => {
+    const label = status === 'PRESENT' ? 'Present'
+      : status === 'ABSENT' ? 'Absent'
+      : status === 'LATE' ? 'Late'
+      : status === 'EXCUSED' ? 'Excused' : status;
+    const colors = status === 'PRESENT' ? 'bg-green-100 text-green-700'
+      : status === 'ABSENT' ? 'bg-red-100 text-red-700'
+      : status === 'LATE' ? 'bg-amber-100 text-amber-700'
+      : 'bg-blue-100 text-blue-700';
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors}`}>
+        {label}
+      </span>
+    );
+  };
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><FaClipboardList /> Attendance</h1>
+        <p className="text-sm text-gray-500 mb-3">Monitor and manage student attendance</p>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <input type="date"
+            className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a237e] focus:border-transparent outline-none"
+            value={dateFilter} onChange={(e) => { setDateFilter(e.target.value); setPage(0); }} />
+          <select
+            className="border border-gray-300 rounded-lg text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#1a237e] bg-white cursor-pointer"
+            value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+            <option value="">All statuses</option>
+            <option value="PRESENT">Present</option>
+            <option value="ABSENT">Absent</option>
+            <option value="LATE">Late</option>
+            <option value="EXCUSED">Excused</option>
+          </select>
+          <button className="text-sm text-[#1a237e] hover:underline cursor-pointer px-2 py-2.5"
+            onClick={() => { setDateFilter(''); setStatusFilter(''); setPage(0); }}>Reset filters</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-[#1a237e] rounded-full animate-spin" />
+        </div>
+      ) : records.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+          <FaClipboardList size={32} className="mb-2" />
+          <p className="text-sm">No attendance records found.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Student</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Room</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Block</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Status</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Remarks</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Marked At</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-[#1a237e] text-white rounded-full flex items-center justify-center text-xs font-bold">{r.studentName?.charAt(0)}</div>
+                        <span className="text-gray-900 font-medium">{r.studentName}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-gray-700">{r.roomNo || '\u2014'}</td>
+                    <td className="py-3 px-4 text-gray-700">{r.blockName || '\u2014'}</td>
+                    <td className="py-3 px-4 text-gray-700">{r.date}</td>
+                    <td className="py-3 px-4">{statusBadge(r.status)}</td>
+                    <td className="py-3 px-4 text-gray-700 max-w-[200px] truncate">{r.remarks || '\u2014'}</td>
+                    <td className="py-3 px-4 text-gray-700">{r.markedAt?.slice(0, 16).replace('T', ' ') || '\u2014'}</td>
+                    <td className="py-3 px-4">
+                      <button className="text-[#1a237e] hover:underline text-sm cursor-pointer"
+                        onClick={() => openCorrect(r)}>Correct</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Showing {totalElements === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalElements)} of {totalElements} records
+            </p>
+            <div className="flex items-center gap-3">
+              <button disabled={page <= 0}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page - 1)}>Previous</button>
+              <span className="text-xs text-gray-500">Page {totalPages === 0 ? 0 : page + 1} of {totalPages}</span>
+              <button disabled={page + 1 >= totalPages}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page + 1)}>Next</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {correctId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { if (!saving) setCorrectId(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Correct Attendance</h3>
+              <button className="text-gray-400 hover:text-gray-600 cursor-pointer" disabled={saving} onClick={() => setCorrectId(null)}><FaTimes /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a237e] focus:border-transparent outline-none bg-white cursor-pointer"
+                  value={correctStatus} onChange={(e) => setCorrectStatus(e.target.value)}>
+                  <option value="PRESENT">Present</option>
+                  <option value="ABSENT">Absent</option>
+                  <option value="LATE">Late</option>
+                  <option value="EXCUSED">Excused</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                <textarea
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a237e] focus:border-transparent outline-none"
+                  rows={3} value={correctRemarks} onChange={(e) => setCorrectRemarks(e.target.value)}
+                  placeholder="Reason for correction..." />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-gray-400 cursor-pointer"
+                  onClick={() => setCorrectId(null)} disabled={saving}>Cancel</button>
+                <button className="flex items-center gap-1 bg-[#1a237e] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#0d47a1] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={handleCorrect} disabled={saving}>
+                  {saving ? 'Saving...' : (<><FaSave /> Save Correction</>)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdminComplaints = () => {
   const [complaints, setComplaints] = useState([]);
   const [search, setSearch] = useState('');
@@ -1343,6 +1551,8 @@ const AdminReports = () => {
   const [loading, setLoading] = useState(true);
   const [downloadFormat, setDownloadFormat] = useState('pdf');
   const [reportType, setReportType] = useState('dashboard-summary');
+  const [attendanceDate, setAttendanceDate] = useState('');
+  const [attendanceStatus, setAttendanceStatus] = useState('');
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -1362,6 +1572,7 @@ const AdminReports = () => {
     rooms: reportService.downloadRoomsReport,
     leaves: reportService.downloadLeavesReport,
     complaints: reportService.downloadComplaintsReport,
+    attendance: reportService.downloadAttendanceReport,
   };
 
   const handleExport = async () => {
@@ -1370,7 +1581,11 @@ const AdminReports = () => {
     try {
       const download = reportDownloaders[reportType]
         || reportService.downloadDashboardSummaryReport;
-      const filename = await download(downloadFormat);
+      const params = reportType === 'attendance'
+        ? { ...(attendanceDate ? { date: attendanceDate } : {}),
+            ...(attendanceStatus ? { status: attendanceStatus } : {}) }
+        : undefined;
+      const filename = await download(downloadFormat, params);
       toast.success(`Report downloaded: ${filename}`);
     } catch (err) {
       toast.error(err.message || 'Unable to download the report. Please try again.');
@@ -1441,6 +1656,7 @@ const AdminReports = () => {
             <option value="rooms">Room &amp; Occupancy Report</option>
             <option value="leaves">Leave Report</option>
             <option value="complaints">Complaint Report</option>
+            <option value="attendance">Attendance Report</option>
             <option value="dashboard-summary">Monthly Summary</option>
           </select>
           <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
@@ -1448,6 +1664,23 @@ const AdminReports = () => {
             <option value="pdf">PDF</option>
             <option value="xlsx">Excel</option>
           </select>
+          {reportType === 'attendance' && (
+            <>
+              <input type="date"
+                className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+                value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} disabled={downloading} />
+              <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+                value={attendanceStatus} onChange={(e) => setAttendanceStatus(e.target.value)} disabled={downloading}>
+                <option value="">All Statuses</option>
+                <option value="PRESENT">Present</option>
+                <option value="ABSENT">Absent</option>
+                <option value="LATE">Late</option>
+                <option value="EXCUSED">Excused</option>
+              </select>
+              <button className="text-sm text-[#1a237e] hover:underline cursor-pointer px-2 py-2"
+                onClick={() => { setAttendanceDate(''); setAttendanceStatus(''); }} disabled={downloading}>Reset</button>
+            </>
+          )}
           <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-[#1a237e] hover:text-[#1a237e] disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleExport} disabled={downloading}>
             <FaDownload /> {downloading ? 'Exporting...' : 'Export Report'}
           </button>
@@ -1871,6 +2104,7 @@ const AdminDashboard = () => (
           <Route path="audit" element={<AuditLogsPage />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="ai-analytics" element={<AdminAIAnalytics />} />
+          <Route path="attendance" element={<AdminAttendance />} />
           <Route path="profile" element={<AdminProfile />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>

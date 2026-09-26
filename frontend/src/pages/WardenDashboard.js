@@ -8,6 +8,7 @@ import WardenHome from './warden/WardenHome';
 import WardenStudents from './warden/WardenStudents';
 import WardenRooms from './warden/WardenRooms';
 import WardenLeaves from './warden/WardenLeaves';
+import WardenAttendance from './warden/WardenAttendance';
 import WardenComplaints from './warden/WardenComplaints';
 import WardenNotices from './warden/WardenNotices';
 import WardenReports from './warden/WardenReports';
@@ -25,6 +26,7 @@ const WardenDashboard = () => (
           <Route path="students" element={<WardenStudents />} />
           <Route path="rooms" element={<WardenRooms />} />
           <Route path="leaves" element={<WardenLeaves />} />
+          <Route path="attendance" element={<WardenAttendance />} />
           <Route path="complaints" element={<WardenComplaints />} />
           <Route path="notices" element={<WardenNotices />} />
           <Route path="reports" element={<WardenReports />} />

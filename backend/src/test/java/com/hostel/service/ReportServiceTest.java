@@ -3,6 +3,8 @@ package com.hostel.service;
 import com.hostel.dto.ApiResponse;
 import com.hostel.dto.BlockStatsDto;
 import com.hostel.dto.DashboardStatsDto;
+import com.hostel.entity.AttendanceRecord;
+import com.hostel.entity.AttendanceStatus;
 import com.hostel.entity.Complaint;
 import com.hostel.entity.HostelBlock;
 import com.hostel.entity.LeaveRequest;
@@ -10,6 +12,7 @@ import com.hostel.entity.Room;
 import com.hostel.entity.Student;
 import com.hostel.entity.User;
 import com.hostel.entity.Warden;
+import com.hostel.repository.AttendanceRepository;
 import com.hostel.repository.ComplaintRepository;
 import com.hostel.repository.LeaveRequestRepository;
 import com.hostel.repository.RoomRepository;
@@ -32,6 +35,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +70,9 @@ class ReportServiceTest {
 
     @Mock
     private ComplaintRepository complaintRepository;
+
+    @Mock
+    private AttendanceRepository attendanceRepository;
 
     @Mock
     private AdminService adminService;
@@ -334,5 +341,100 @@ class ReportServiceTest {
                 () -> reportService.generateRoomsPdf());
         verify(roomRepository, never()).findAll();
         verify(roomRepository, never()).findByBlockId(any());
+    }
+
+    private AttendanceRecord attendance(Long id, Student student,
+                                        LocalDate date,
+                                        AttendanceStatus status) {
+        return AttendanceRecord.builder().id(id).student(student)
+                .date(date).status(status)
+                .markedBy(WARDEN_USER).markedAt(date.atStartOfDay())
+                .remarks("muster").build();
+    }
+
+    @Test
+    void adminAttendancePdfGlobal() {
+        authenticateAs(ADMIN);
+        Student roomless = Student.builder().id(50L)
+                .user(User.builder().id(60L).name("No Room")
+                        .email("nr@hostel.com").password("h")
+                        .role(User.Role.STUDENT).build())
+                .room(null).enrollmentNo("ENR050").build();
+        when(attendanceRepository.searchAll(eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(
+                        attendance(90L, student(), LocalDate.of(2026, 9, 24),
+                                AttendanceStatus.PRESENT),
+                        attendance(91L, roomless, LocalDate.of(2026, 9, 24),
+                                AttendanceStatus.ABSENT))));
+
+        ReportService.GeneratedReport report =
+                reportService.generateAttendancePdf(null, null);
+
+        assertPdf(report.content());
+        assertEquals("hostel-attendance-report.pdf", report.filename());
+    }
+
+    @Test
+    void adminAttendanceXlsxOpens() throws Exception {
+        authenticateAs(ADMIN);
+        when(attendanceRepository.searchAll(eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(
+                        attendance(90L, student(), LocalDate.of(2026, 9, 24),
+                                AttendanceStatus.LATE))));
+
+        try (Workbook wb = openWorkbook(
+                reportService.generateAttendanceXlsx(null, null).content())) {
+            assertNotNull(wb.getSheet("Attendance"));
+        }
+    }
+
+    @Test
+    void wardenAttendanceScopedToOwnBlock() {
+        authenticateAs(WARDEN_USER);
+        stubWardenBlock();
+        when(attendanceRepository.searchByBlock(eq(5L), eq(null), eq(null),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(
+                        attendance(90L, student(), LocalDate.of(2026, 9, 24),
+                                AttendanceStatus.PRESENT))));
+
+        ReportService.GeneratedReport report =
+                reportService.generateAttendancePdf(null, null);
+
+        assertPdf(report.content());
+        assertEquals("a-wing-senior-boys-attendance-report.pdf",
+                report.filename());
+        verify(attendanceRepository, never())
+                .searchAll(any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void wardenAttendanceDateFilterPassedThrough() {
+        authenticateAs(WARDEN_USER);
+        stubWardenBlock();
+        LocalDate date = LocalDate.of(2026, 9, 24);
+        when(attendanceRepository.searchByBlock(eq(5L), eq(date),
+                eq(AttendanceStatus.ABSENT), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        ReportService.GeneratedReport report =
+                reportService.generateAttendanceXlsx(
+                        date, AttendanceStatus.ABSENT);
+
+        assertNotNull(report.content());
+        assertTrue(report.content().length > 0);
+    }
+
+    @Test
+    void wardenAttendanceEmptyReportWorks() {
+        authenticateAs(WARDEN_USER);
+        stubWardenBlock();
+        when(attendanceRepository.searchByBlock(eq(5L), eq(null), eq(null),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        assertPdf(reportService.generateAttendancePdf(null, null).content());
+        verify(attendanceRepository, never())
+                .searchAll(any(), any(), any(Pageable.class));
     }
 }

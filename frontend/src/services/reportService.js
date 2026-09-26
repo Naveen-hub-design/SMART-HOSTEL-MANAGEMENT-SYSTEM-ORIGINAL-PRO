@@ -5,6 +5,7 @@ const REPORT_TYPES = [
   'rooms',
   'leaves',
   'complaints',
+  'attendance',
   'dashboard-summary',
 ];
 
@@ -79,7 +80,7 @@ const errorMessage = async (err) => {
  * The backend derives ADMIN-global vs WARDEN own-block scope from the
  * JWT; the frontend never sends block identifiers.
  */
-const downloadReport = async (type, format) => {
+const downloadReport = async (type, format, params) => {
   if (!REPORT_TYPES.includes(type) || !REPORT_FORMATS.includes(format)) {
     throw new Error('Unable to download the report. Please try again.');
   }
@@ -87,6 +88,7 @@ const downloadReport = async (type, format) => {
   try {
     const response = await API.get(`/reports/${type}.${format}`, {
       responseType: 'blob',
+      params: params || undefined,
     });
     return downloadBlob(response, fallbackName);
   } catch (err) {
@@ -100,6 +102,8 @@ const reportService = {
   downloadRoomsReport: (format) => downloadReport('rooms', format),
   downloadLeavesReport: (format) => downloadReport('leaves', format),
   downloadComplaintsReport: (format) => downloadReport('complaints', format),
+  downloadAttendanceReport: (format, params) =>
+    downloadReport('attendance', format, params),
   downloadDashboardSummaryReport: (format) =>
     downloadReport('dashboard-summary', format),
 };

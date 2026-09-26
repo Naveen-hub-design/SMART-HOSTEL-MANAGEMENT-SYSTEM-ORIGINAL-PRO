@@ -45,7 +45,7 @@ class ReportControllerSecurityTest {
                     "STUDENT must not be permitted on " + method.getName());
             checked++;
         }
-        assertEquals(10, checked,
-                "Expected exactly 10 report endpoints");
+        assertEquals(12, checked,
+                "Expected exactly 12 report endpoints");
     }
 }

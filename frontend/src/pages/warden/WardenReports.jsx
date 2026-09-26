@@ -11,6 +11,8 @@ const WardenReports = () => {
   const [blockName, setBlockName] = useState('');
   const [reportType, setReportType] = useState('dashboard-summary');
   const [downloadFormat, setDownloadFormat] = useState('pdf');
+  const [attendanceDate, setAttendanceDate] = useState('');
+  const [attendanceStatus, setAttendanceStatus] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -20,6 +22,7 @@ const WardenReports = () => {
     rooms: reportService.downloadRoomsReport,
     leaves: reportService.downloadLeavesReport,
     complaints: reportService.downloadComplaintsReport,
+    attendance: reportService.downloadAttendanceReport,
   };
 
   useEffect(() => {
@@ -40,7 +43,11 @@ const WardenReports = () => {
     try {
       const download = reportDownloaders[reportType]
         || reportService.downloadDashboardSummaryReport;
-      await download(downloadFormat);
+      const params = reportType === 'attendance'
+        ? { ...(attendanceDate ? { date: attendanceDate } : {}),
+            ...(attendanceStatus ? { status: attendanceStatus } : {}) }
+        : undefined;
+      await download(downloadFormat, params);
       toast.success('Report downloaded successfully.');
     } catch (err) {
       toast.error(err.message || 'Unable to download the report. Please try again.');
@@ -117,6 +124,7 @@ const WardenReports = () => {
             <option value="rooms">Room &amp; Occupancy Report</option>
             <option value="leaves">Leave Report</option>
             <option value="complaints">Complaint Report</option>
+            <option value="attendance">Attendance Report</option>
             <option value="dashboard-summary">Monthly Summary</option>
           </select>
           <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
@@ -124,6 +132,23 @@ const WardenReports = () => {
             <option value="pdf">PDF</option>
             <option value="xlsx">Excel</option>
           </select>
+          {reportType === 'attendance' && (
+            <>
+              <input type="date"
+                className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+                value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} disabled={downloading} />
+              <select className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium outline-none cursor-pointer"
+                value={attendanceStatus} onChange={(e) => setAttendanceStatus(e.target.value)} disabled={downloading}>
+                <option value="">All Statuses</option>
+                <option value="PRESENT">Present</option>
+                <option value="ABSENT">Absent</option>
+                <option value="LATE">Late</option>
+                <option value="EXCUSED">Excused</option>
+              </select>
+              <button className="text-sm text-[#1a237e] hover:underline cursor-pointer px-2 py-2"
+                onClick={() => { setAttendanceDate(''); setAttendanceStatus(''); }} disabled={downloading}>Reset</button>
+            </>
+          )}
           <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-[#1a237e] hover:text-[#1a237e] disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleExport} disabled={downloading}>
             <FaDownload /> {downloading ? 'Exporting...' : 'Export Report'}
           </button>

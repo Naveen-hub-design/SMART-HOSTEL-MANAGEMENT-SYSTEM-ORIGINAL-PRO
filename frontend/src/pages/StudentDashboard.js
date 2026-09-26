@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -15,13 +15,15 @@ import noticeService from '../services/noticeService';
 import marketplaceService from '../services/marketplaceService';
 import lostFoundService from '../services/lostFoundService';
 import messFeedbackService from '../services/messFeedbackService';
+import attendanceService from '../services/attendanceService';
 import {
   FaUser, FaDoorOpen, FaCalendarAlt, FaExclamationTriangle, FaBullhorn,
   FaStore, FaSearch, FaUtensils, FaHome, FaEdit, FaSave, FaTimes,
   FaPlus, FaTrash, FaCheck, FaUpload, FaStar, FaArrowLeft,
   FaPhone, FaEnvelope, FaIdCard, FaMapMarkerAlt, FaUserFriends,
   FaVenusMars, FaCalendar, FaLock, FaEye, FaEyeSlash,
-  FaImage, FaBox, FaShoppingCart, FaStarHalfAlt, FaMapMarkerAlt as FaMapPin
+  FaImage, FaBox, FaShoppingCart, FaStarHalfAlt, FaMapMarkerAlt as FaMapPin,
+  FaClipboardList
 } from 'react-icons/fa';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -1434,6 +1436,191 @@ const StudentMessFeedback = () => {
   );
 };
 
+const STATUS_LABELS = {
+  PRESENT: 'Present',
+  ABSENT: 'Absent',
+  LATE: 'Late',
+  EXCUSED: 'Excused',
+};
+
+const statusBadge = (status) => {
+  const colors = status === 'PRESENT' ? 'bg-green-100 text-green-700'
+    : status === 'ABSENT' ? 'bg-red-100 text-red-700'
+    : status === 'LATE' ? 'bg-amber-100 text-amber-700'
+    : 'bg-blue-100 text-blue-700';
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+};
+
+const StudentAttendance = () => {
+  const PAGE_SIZE = 10;
+  const [records, setRecords] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPage = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await attendanceService.getMyAttendance({
+        date: dateFilter || undefined,
+        status: statusFilter || undefined,
+        page,
+        size: PAGE_SIZE,
+      });
+      const list = Array.isArray(data) ? data : (data?.content || []);
+      setRecords(list);
+      setTotalPages(data?.totalPages || 0);
+      setTotalElements(data?.totalElements ?? list.length);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load attendance');
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFilter, statusFilter, page]);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      // Bounded full fetch so the summary reflects all records,
+      // never just the current page.
+      let all = [];
+      let current = 0;
+      for (let i = 0; i < 20; i++) {
+        const data = await attendanceService.getMyAttendance({
+          page: current,
+          size: 50,
+        });
+        const list = Array.isArray(data) ? data : (data?.content || []);
+        all = all.concat(list);
+        if (data?.last || list.length === 0) break;
+        current += 1;
+      }
+      const counts = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
+      all.forEach((r) => {
+        if (counts[r.status] !== undefined) counts[r.status] += 1;
+      });
+      setSummary({ total: all.length, ...counts });
+    } catch (err) {
+      setSummary(null);
+    }
+  }, []);
+
+  useEffect(() => { fetchPage(); }, [fetchPage]);
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+  const resetFilters = () => {
+    setDateFilter('');
+    setStatusFilter('');
+    setPage(0);
+  };
+
+  const presentPct = summary && summary.total > 0
+    ? Math.round((summary.PRESENT / summary.total) * 100)
+    : null;
+
+  const summaryCards = summary && summary.total > 0 ? [
+    { label: 'Total Days', value: summary.total },
+    { label: 'Present', value: summary.PRESENT },
+    { label: 'Absent', value: summary.ABSENT },
+    { label: 'Late', value: summary.LATE },
+    { label: 'Excused', value: summary.EXCUSED },
+    { label: 'Present %', value: presentPct != null ? `${presentPct}%` : '\u2014' },
+  ] : [];
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><FaClipboardList /> My Attendance</h1>
+        <p className="text-sm text-gray-500 mb-3">View your daily hostel attendance</p>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <input type="date"
+            className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a237e] focus:border-transparent outline-none"
+            value={dateFilter} onChange={(e) => { setDateFilter(e.target.value); setPage(0); }} />
+          <select
+            className="border border-gray-300 rounded-lg text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#1a237e] bg-white cursor-pointer"
+            value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+            <option value="">All statuses</option>
+            <option value="PRESENT">Present</option>
+            <option value="ABSENT">Absent</option>
+            <option value="LATE">Late</option>
+            <option value="EXCUSED">Excused</option>
+          </select>
+          <button className="text-sm text-[#1a237e] hover:underline cursor-pointer px-2 py-2.5"
+            onClick={resetFilters}>Reset filters</button>
+        </div>
+      </div>
+
+      {summaryCards.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          {summaryCards.map((c, i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm p-4">
+              <p className="text-xs text-gray-500">{c.label}</p>
+              <h3 className="text-lg font-semibold text-gray-900">{c.value}</h3>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-[#1a237e] rounded-full animate-spin" />
+        </div>
+      ) : records.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+          <FaClipboardList size={32} className="mb-2" />
+          <p className="text-sm">No attendance records found.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Status</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Remarks</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Marked At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-900 font-medium">{r.date}</td>
+                    <td className="py-3 px-4">{statusBadge(r.status)}</td>
+                    <td className="py-3 px-4 text-gray-700">{r.remarks || '\u2014'}</td>
+                    <td className="py-3 px-4 text-gray-700">{r.markedAt?.slice(0, 16).replace('T', ' ') || '\u2014'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Showing {totalElements === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalElements)} of {totalElements} records
+            </p>
+            <div className="flex items-center gap-3">
+              <button disabled={page <= 0}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page - 1)}>Previous</button>
+              <span className="text-xs text-gray-500">Page {totalPages === 0 ? 0 : page + 1} of {totalPages}</span>
+              <button disabled={page + 1 >= totalPages}
+                className="px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => setPage(page + 1)}>Next</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const StudentDashboard = () => (
   <ProtectedRoute allowedRoles={['student']}>
     <div className="min-h-screen bg-gray-50">
@@ -1451,6 +1638,7 @@ const StudentDashboard = () => (
           <Route path="marketplace" element={<StudentMarketplace />} />
           <Route path="lost-found" element={<StudentLostFound />} />
           <Route path="mess-feedback" element={<StudentMessFeedback />} />
+          <Route path="attendance" element={<StudentAttendance />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </div>

@@ -18,6 +18,7 @@ import com.hostel.entity.Student;
 import com.hostel.exception.DuplicateResourceException;
 import com.hostel.exception.ResourceNotFoundException;
 import com.hostel.repository.AdminRepository;
+import com.hostel.repository.AttendanceRepository;
 import com.hostel.repository.AuditLogRepository;
 import com.hostel.repository.ComplaintRepository;
 import com.hostel.repository.HostelBlockRepository;
@@ -62,6 +63,7 @@ public class AdminService {
     private final MarketplaceItemRepository marketplaceItemRepository;
     private final LostAndFoundRepository lostAndFoundRepository;
     private final MessFeedbackRepository messFeedbackRepository;
+    private final AttendanceRepository attendanceRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuditService auditService;
@@ -79,6 +81,7 @@ public class AdminService {
                         MarketplaceItemRepository marketplaceItemRepository,
                         LostAndFoundRepository lostAndFoundRepository,
                         MessFeedbackRepository messFeedbackRepository,
+                        AttendanceRepository attendanceRepository,
                         BCryptPasswordEncoder passwordEncoder,
                         JwtUtils jwtUtils,
                         AuditService auditService,
@@ -95,6 +98,7 @@ public class AdminService {
         this.marketplaceItemRepository = marketplaceItemRepository;
         this.lostAndFoundRepository = lostAndFoundRepository;
         this.messFeedbackRepository = messFeedbackRepository;
+        this.attendanceRepository = attendanceRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
         this.auditService = auditService;
@@ -339,6 +343,8 @@ public class AdminService {
                 .forEach(i -> marketplaceItemRepository.delete(i));
         lostAndFoundRepository.findByReportedById(studentId)
                 .forEach(l -> lostAndFoundRepository.delete(l));
+        attendanceRepository.findByStudentId(studentId)
+                .forEach(a -> attendanceRepository.delete(a));
 
         User user = student.getUser();
         studentRepository.delete(student);

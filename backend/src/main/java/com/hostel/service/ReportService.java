@@ -2,6 +2,8 @@ package com.hostel.service;
 
 import com.hostel.dto.BlockStatsDto;
 import com.hostel.dto.DashboardStatsDto;
+import com.hostel.entity.AttendanceRecord;
+import com.hostel.entity.AttendanceStatus;
 import com.hostel.entity.Complaint;
 import com.hostel.entity.HostelBlock;
 import com.hostel.entity.LeaveRequest;
@@ -10,6 +12,7 @@ import com.hostel.entity.Student;
 import com.hostel.entity.User;
 import com.hostel.entity.Warden;
 import com.hostel.exception.ResourceNotFoundException;
+import com.hostel.repository.AttendanceRepository;
 import com.hostel.repository.ComplaintRepository;
 import com.hostel.repository.LeaveRequestRepository;
 import com.hostel.repository.RoomRepository;
@@ -47,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -78,6 +82,7 @@ public class ReportService {
     private final RoomRepository roomRepository;
     private final LeaveRequestRepository leaveRequestRepository;
     private final ComplaintRepository complaintRepository;
+    private final AttendanceRepository attendanceRepository;
     private final AdminService adminService;
     private final WardenService wardenService;
 
@@ -87,6 +92,7 @@ public class ReportService {
                          RoomRepository roomRepository,
                          LeaveRequestRepository leaveRequestRepository,
                          ComplaintRepository complaintRepository,
+                         AttendanceRepository attendanceRepository,
                          AdminService adminService,
                          WardenService wardenService) {
         this.userRepository = userRepository;
@@ -95,6 +101,7 @@ public class ReportService {
         this.roomRepository = roomRepository;
         this.leaveRequestRepository = leaveRequestRepository;
         this.complaintRepository = complaintRepository;
+        this.attendanceRepository = attendanceRepository;
         this.adminService = adminService;
         this.wardenService = wardenService;
     }
@@ -261,6 +268,30 @@ public class ReportService {
                 fileName(scope, "complaints", "xlsx"));
     }
 
+    public GeneratedReport generateAttendancePdf(LocalDate date,
+                                                 AttendanceStatus status) {
+        Scope scope = resolveScope();
+        ReportTable table = attendanceTable(scope, date, status);
+        List<String> meta = metaLines(scope, "Attendance");
+        meta.add("Date: " + (date != null ? date.toString() : "All dates"));
+        if (status != null) {
+            meta.add("Status: " + status.name());
+        }
+        return new GeneratedReport(
+                renderPdf("Attendance Report", meta,
+                        List.of(table), true),
+                fileName(scope, "attendance", "pdf"));
+    }
+
+    public GeneratedReport generateAttendanceXlsx(LocalDate date,
+                                                  AttendanceStatus status) {
+        Scope scope = resolveScope();
+        ReportTable table = attendanceTable(scope, date, status);
+        return new GeneratedReport(
+                renderExcel(List.of(sheet("Attendance", table))),
+                fileName(scope, "attendance", "xlsx"));
+    }
+
     public GeneratedReport generateSummaryPdf() {
         Scope scope = resolveScope();
         List<ReportTable> tables = summaryTables(scope);
@@ -410,6 +441,42 @@ public class ReportService {
                 List.of("ID", "Student", "Room", "Block", "Category", "Title",
                         "Description", "Status", "Created At", "Resolved At"),
                 rows);
+    }
+
+    private ReportTable attendanceTable(Scope scope, LocalDate date,
+                                          AttendanceStatus status) {
+        List<List<Object>> rows = new ArrayList<>();
+        for (AttendanceRecord a : attendanceRows(scope, date, status)) {
+            Student s = a.getStudent();
+            User u = s != null ? s.getUser() : null;
+            Room room = s != null ? s.getRoom() : null;
+            rows.add(List.of(
+                    u != null ? text(u.getName()) : "-",
+                    s != null ? text(s.getEnrollmentNo()) : "-",
+                    room != null ? text(room.getRoomNo()) : "-",
+                    room != null && room.getBlock() != null
+                            ? text(room.getBlock().getName()) : "-",
+                    a.getDate() != null ? a.getDate().toString() : "-",
+                    a.getStatus() != null ? a.getStatus().name() : "-",
+                    text(a.getRemarks()),
+                    dateTime(a.getMarkedAt()),
+                    a.getMarkedBy() != null
+                            ? text(a.getMarkedBy().getName()) : "-"));
+        }
+        return new ReportTable(null,
+                List.of("Student", "Enrollment No", "Room", "Block", "Date",
+                        "Status", "Remarks", "Marked At", "Marked By"),
+                rows);
+    }
+
+    private List<AttendanceRecord> attendanceRows(
+            Scope scope, LocalDate date, AttendanceStatus status) {
+        if (scope.admin) {
+            return attendanceRepository.searchAll(date, status,
+                    Pageable.unpaged()).getContent();
+        }
+        return attendanceRepository.searchByBlock(scope.blockId, date, status,
+                Pageable.unpaged()).getContent();
     }
 
     private List<ReportTable> summaryTables(Scope scope) {

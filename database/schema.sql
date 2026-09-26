@@ -115,6 +115,22 @@ CREATE TABLE IF NOT EXISTS notices (
     INDEX idx_notices_role (target_role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    student_id BIGINT NOT NULL,
+    date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    marked_by BIGINT,
+    marked_at DATETIME,
+    remarks VARCHAR(500),
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (marked_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_attendance_student_date (student_id, date),
+    INDEX idx_attendance_student (student_id),
+    INDEX idx_attendance_date (date),
+    INDEX idx_attendance_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS mess_feedback (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     student_id BIGINT NOT NULL,
