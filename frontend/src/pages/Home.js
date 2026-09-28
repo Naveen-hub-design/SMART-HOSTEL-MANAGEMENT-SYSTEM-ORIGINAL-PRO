@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import {
   FaBed, FaCalendarAlt, FaExclamationTriangle, FaBullhorn,
   FaSearch, FaStore, FaArrowRight, FaStar, FaShieldAlt,
@@ -24,9 +23,6 @@ const stats = [
 ];
 
 const Home = () => {
-  const { isAuthenticated, user } = useAuth();
-  const dashboardPath = user?.role ? `/${user.role.toLowerCase()}/dashboard` : '/login';
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <nav className="flex items-center justify-between px-6 md:px-16 py-4 bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
@@ -36,15 +32,9 @@ const Home = () => {
         </Link>
         <div className="flex items-center gap-4">
           <a href="#features" className="text-gray-600 hover:text-[#1a237e] text-sm font-medium no-underline hidden sm:block">Features</a>
-          {isAuthenticated ? (
-            <Link to={dashboardPath} className="bg-[#1a237e] text-white px-5 py-2 rounded-lg text-sm font-semibold no-underline hover:bg-[#0d47a1] transition-colors shadow-md">
-              Go to Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link to="/login" className="text-gray-600 hover:text-[#1a237e] text-sm font-medium no-underline">Sign In</Link>
-            </>
-          )}
+          <Link to="/login" className="bg-[#1a237e] text-white px-5 py-2 rounded-lg text-sm font-semibold no-underline hover:bg-[#0d47a1] transition-colors shadow-md">
+            Sign In
+          </Link>
         </div>
       </nav>
 
@@ -64,15 +54,9 @@ const Home = () => {
             and streamlining campus life with modern digital tools.
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-12">
-            {isAuthenticated ? (
-              <Link to={dashboardPath} className="inline-flex items-center gap-2 bg-[#1a237e] text-white px-8 py-3 rounded-xl text-lg font-medium no-underline hover:bg-[#0d47a1] transition-all shadow-lg hover:shadow-xl">
-                Go to Dashboard <FaArrowRight />
-              </Link>
-            ) : (
-              <Link to="/login" className="inline-flex items-center gap-2 bg-[#1a237e] text-white px-8 py-3 rounded-xl text-lg font-medium no-underline hover:bg-[#0d47a1] transition-all shadow-lg hover:shadow-xl">
-                Get Started <FaArrowRight />
-              </Link>
-            )}
+            <Link to="/login" className="inline-flex items-center gap-2 bg-[#1a237e] text-white px-8 py-3 rounded-xl text-lg font-medium no-underline hover:bg-[#0d47a1] transition-all shadow-lg hover:shadow-xl">
+              Sign In <FaArrowRight />
+            </Link>
             <a href="#features" className="inline-flex items-center gap-2 border-2 border-gray-300 text-gray-700 px-8 py-3 rounded-xl text-lg font-medium no-underline hover:border-[#1a237e] hover:text-[#1a237e] transition-all">
               Learn More
             </a>
